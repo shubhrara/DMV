@@ -1,0 +1,544 @@
+EXPERIMENT 7: DATA LOADING, STORAGE AND FILE FORMATS
+=====================================================
+
+AIM
+---
+Load sales data from CSV, Excel and JSON files, inspect and clean it, create
+new columns, analyse sales, visualize results and save the cleaned data.
+
+BASIC IDEA
+----------
+The three input files (Sales.csv, Sales.xlsx and Sales.json) are copies of
+the same sales dataset in different formats. We compare them, but use only
+one copy for analysis so that sales are not counted three times.
+
+IMPORTANT TERMS
+---------------
+- Library: Ready-made Python code that provides useful functions.
+- DataFrame: A table of data with rows and columns, provided by Pandas.
+- EDA (Exploratory Data Analysis): Inspecting data to understand its structure
+  and identify issues before analysis.
+- NaN: Missing numerical value. NaT: Missing/invalid date value.
+- Median: The middle value after sorting the values.
+
+1. IMPORT LIBRARIES
+-------------------
+import pandas as pd
+  Imports Pandas for reading, cleaning and analysing tabular data.
+  'pd' is its short alias.
+
+import numpy as np
+  Imports NumPy for numerical operations. 'np' is its short alias.
+  This practical uses np.nan to represent a missing value.
+
+import matplotlib.pyplot as plt
+  Imports Matplotlib's plotting module to create graphs. 'plt' is its alias.
+
+import json
+  Imports Python's built-in JSON module. It is not explicitly used elsewhere
+  in this notebook; Pandas handles the JSON read/write operations here.
+
+from pathlib import Path
+  Imports Path for working with file paths. It is also not used elsewhere
+  in this notebook.
+
+pd.set_option("display.max_columns", None)
+  Tells Pandas to display all columns instead of hiding some columns.
+
+pd.set_option("display.width", 120)
+  Sets the preferred display width to 120 characters for notebook output.
+
+2. LOAD DATA FROM THREE FILE FORMATS
+------------------------------------
+csv_df = pd.read_csv("Sales.csv")
+  Reads the CSV file and stores its contents as a Pandas DataFrame.
+
+excel_df = pd.read_excel("Sales.xlsx")
+  Reads the Excel file and stores it as a DataFrame.
+
+json_df = pd.read_json("Sales.json")
+  Reads the JSON file and stores it as a DataFrame.
+
+print("CSV shape:", csv_df.shape)
+print("Excel shape:", excel_df.shape)
+print("JSON shape:", json_df.shape)
+  Displays each DataFrame's dimensions. shape returns (number of rows,
+  number of columns).
+
+display(csv_df.head())
+display(excel_df.head())
+display(json_df.head())
+  Displays the first five rows of each DataFrame. head() shows five rows
+  by default; display() gives a rich table view in Jupyter.
+
+3. EXPLORE THE DATA
+-------------------
+print("Column names:")
+  Prints a heading for the next output.
+
+print(csv_df.columns.tolist())
+  columns gets the column names; tolist() converts them into a normal
+  Python list so they are easy to view.
+
+print("\nData types:")
+  Prints a heading on a new line. \n means newline.
+
+print(csv_df.dtypes)
+  Displays the data type of each column, such as int64 (whole number),
+  float64 (decimal) and object (often text).
+
+print("\nMissing values:")
+  Prints the heading for missing-value counts.
+
+display(csv_df.isnull().sum())
+  isnull() marks missing cells as True and present cells as False.
+  sum() counts the True values column-wise.
+
+print("Exact duplicate rows:", csv_df.duplicated().sum())
+  duplicated() marks rows that repeat an earlier complete row.
+  sum() counts those duplicate rows.
+
+print("\nNumeric summary:")
+  Prints a heading for the summary.
+
+display(csv_df.describe(include="all").T)
+  describe() gives summary statistics. For numbers it includes count, mean,
+  standard deviation, minimum, quartiles and maximum. include="all" also
+  includes non-numeric columns. .T transposes the summary (swaps rows/columns)
+  to make it easier to read.
+
+4. CREATE ONE WORKING DATAFRAME
+-------------------------------
+same_structure = (
+    list(csv_df.columns) == list(excel_df.columns) == list(json_df.columns)
+    and csv_df.shape == excel_df.shape == json_df.shape
+)
+  Checks that all files have identical column names in the same order and
+  identical dimensions. list() converts column labels to lists; == compares
+  them; and requires both checks to be True. The result is True or False.
+  This checks structure, not whether every cell value is identical.
+
+print("All three files have the same structure:", same_structure)
+  Displays the comparison result.
+
+df = csv_df.copy()
+  Makes an independent working copy of the CSV DataFrame. Changes to df
+  therefore do not directly change csv_df.
+
+df.columns = df.columns.str.strip()
+  Removes spaces from the beginning and end of every column name.
+  .str applies a string operation to all column names.
+
+print("Unified dataframe shape:", df.shape)
+  Displays the rows and columns in the working DataFrame.
+
+display(df.head())
+  Displays its first five rows.
+
+We do not append/concatenate the three files because they are alternate-format
+copies of the same records. Doing so would duplicate every sale.
+
+5. CLEAN THE DATA
+-----------------
+text_columns = df.select_dtypes(include="object").columns
+  Selects columns whose data type is object (usually text) and stores their
+  names in text_columns.
+
+for column in text_columns:
+  Starts a loop: it processes each selected text column one at a time.
+
+    df[column] = df[column].astype("string").str.strip()
+  Converts the current column to Pandas string type, removes spaces at the
+  start/end of each value, and stores the cleaned values back in that column.
+
+duplicate_count = df.duplicated().sum()
+  Counts exact duplicate rows and stores the count.
+
+df = df.drop_duplicates().copy()
+  Removes duplicate rows and makes a separate copy of the result.
+  The cleaned DataFrame replaces the old df.
+
+print("Duplicate rows removed:", duplicate_count)
+  Displays the number of duplicate rows found and removed.
+
+df["Category"] = df["Category"].str.strip().str.title()
+  Removes extra spaces in Category values and changes text to title case
+  (first letter of each word uppercase).
+
+df["Category"] = df["Category"].replace({"Electronic": "Electronics"})
+  Replaces the category spelling "Electronic" with "Electronics".
+  The dictionary maps the old value (key) to the corrected value (value).
+
+df["Order_Date"] = pd.to_datetime(
+    df["Order_Date"], format="mixed", errors="coerce", dayfirst=False
+)
+  Converts Order_Date values into date/time values.
+  format="mixed" allows different date formats in the column.
+  errors="coerce" changes invalid dates to NaT instead of stopping with an error.
+  dayfirst=False means dates are not interpreted with the day first by default.
+
+for column in ["Quantity", "Price", "Total"]:
+  Loops through these three columns so the same cleaning steps are applied
+  to each one.
+
+    cleaned_values = (
+        df[column].astype("string")
+        .str.replace("$", "", regex=False)
+        .str.replace(",", "", regex=False)
+        .str.strip()
+    )
+  Converts values to strings temporarily, removes dollar signs and commas,
+  then removes extra spaces. regex=False means '$' and ',' are treated as
+  literal characters, not regular-expression patterns. The cleaned strings
+  are stored in cleaned_values.
+
+    df[column] = pd.to_numeric(cleaned_values, errors="coerce")
+  Converts the cleaned strings into numbers. Invalid values become NaN.
+  The converted values replace the original column.
+
+print("Missing values after initial conversion:")
+display(df.isnull().sum())
+  Prints and displays the missing-value count in each column. Conversion may
+  have created NaN or NaT values, so we check again.
+
+6. HANDLE MISSING AND UNUSUAL VALUES
+------------------------------------
+df["Category"] = df["Category"].fillna("Unknown")
+  Replaces missing Category values with the text "Unknown".
+
+quantity_median = df["Quantity"].median()
+price_median = df["Price"].median()
+  Calculates the median of Quantity and Price separately and stores them.
+
+df["Quantity"] = df["Quantity"].fillna(quantity_median)
+df["Price"] = df["Price"].fillna(price_median)
+  Fills missing values in each column with that column's median.
+
+missing_total = df["Total"].isna()
+  Creates a True/False mask identifying rows where Total is missing.
+
+df.loc[missing_total, "Total"] = (
+    df.loc[missing_total, "Quantity"] * df.loc[missing_total, "Price"]
+)
+  loc selects rows and columns by label. For rows where Total is missing,
+  calculates Quantity multiplied by Price and puts the result in Total.
+
+df["Review_Negative_Value"] = (df["Quantity"] < 0) | (df["Price"] < 0) | (df["Total"] < 0)
+  Creates a flag column. Each comparison checks for a negative value.
+  | means OR: the result is True if any one of the three values is negative.
+  These rows are flagged for inspection, not automatically deleted.
+
+print("Missing values after cleaning:")
+display(df.isnull().sum())
+  Checks and displays the remaining missing values after filling/calculation.
+
+print("Rows with negative values flagged for review:", df["Review_Negative_Value"].sum())
+  Counts how many rows have the negative-value flag set to True.
+
+display(df.loc[df["Review_Negative_Value"], ["ID", "Product", "Quantity", "Price", "Total", "Status"]])
+  Displays only flagged rows and the selected columns, so they can be checked.
+
+7. TRANSFORM DATA AND CREATE NEW COLUMNS
+----------------------------------------
+df["Order_Year"] = df["Order_Date"].dt.year
+  Extracts the year from each valid date and stores it in a new column.
+
+df["Order_Month"] = df["Order_Date"].dt.month_name()
+  Extracts the month name (for example, January) into a new column.
+
+df["Order_Month_Number"] = df["Order_Date"].dt.month
+  Extracts the month number (1 to 12) into a new column.
+
+df["Average_Item_Value"] = df["Total"] / df["Quantity"].replace(0, np.nan)
+  Calculates Total divided by Quantity. replace(0, np.nan) temporarily
+  replaces zero quantities with a missing value so division by zero is avoided.
+  The result is stored in a new column.
+
+display(df.head())
+  Displays the first five rows, including the new columns.
+
+The three input files are not merged because they contain the same sales
+records. This practical demonstrates transformation by deriving new columns.
+
+8. DESCRIPTIVE STATISTICS AND SALES ANALYSIS
+--------------------------------------------
+print("Number of records:", len(df))
+  len(df) returns the total number of rows (records).
+
+print("Number of unique orders:", df["Order_ID"].nunique())
+  nunique() counts distinct Order_ID values, without counting repeats.
+
+print("Total sales:", round(df["Total"].sum(), 2))
+  sum() adds all Total values. round(value, 2) displays the result to
+  two decimal places.
+
+print("Average order value:", round(df["Total"].sum() / df["Order_ID"].nunique(), 2))
+  Calculates average order value by dividing total sales by the number of
+  unique orders, then rounds the answer to two decimal places.
+
+print("\nDescriptive statistics:")
+display(df[["Quantity", "Price", "Total"]].describe())
+  Selects the three numerical columns and displays their count, mean,
+  standard deviation, minimum, quartiles and maximum.
+
+print("\nSales by product category:")
+  Prints the next analysis heading.
+
+category_sales = df.groupby("Category")["Total"].sum().sort_values(ascending=False)
+  groupby("Category") groups rows having the same category.
+  ["Total"].sum() adds sales within each category.
+  sort_values(ascending=False) sorts sales from highest to lowest.
+  The result is stored in category_sales.
+
+display(category_sales.to_frame("Total_Sales"))
+  Converts the result into a DataFrame and names its column Total_Sales.
+
+print("\nOrders by status:")
+  Prints a heading.
+
+status_counts = df["Status"].value_counts()
+  Counts how many times each order status occurs.
+
+display(status_counts.to_frame("Number_of_Orders"))
+  Converts the status counts into a DataFrame with the column name
+  Number_of_Orders.
+
+print("\nSales by payment method:")
+  Prints a heading.
+
+payment_sales = df.groupby("Payment_Method")["Total"].sum().sort_values(ascending=False)
+  Groups records by payment method, adds Total sales for each method and
+  sorts the results from highest to lowest.
+
+display(payment_sales.to_frame("Total_Sales"))
+  Displays the payment-method sales in a DataFrame.
+
+9. VISUALIZE THE SALES DATA
+---------------------------
+
+A. BAR CHART — SALES BY CATEGORY
+
+plt.figure(figsize=(9, 5))
+  Creates a new figure (graph area) 9 inches wide and 5 inches high.
+
+category_sales.plot(kind="bar")
+  Draws a bar chart using the category-wise sales. Each category gets a bar.
+
+plt.title("Total Sales by Product Category")
+  Adds the chart title.
+
+plt.xlabel("Product Category")
+plt.ylabel("Total Sales")
+  Labels the horizontal and vertical axes.
+
+plt.xticks(rotation=35, ha="right")
+  Rotates category labels by 35 degrees and aligns them to the right so
+  longer labels are easier to read.
+
+plt.tight_layout()
+  Adjusts spacing so labels and chart elements do not overlap or get cut off.
+
+plt.show()
+  Displays the chart.
+
+B. PIE CHART — ORDER STATUS
+
+plt.figure(figsize=(7, 7))
+  Creates a square graph area.
+
+status_counts.plot(kind="pie", autopct="%1.1f%%", startangle=90)
+  Draws a pie chart from the order-status counts.
+  autopct displays each slice as a percentage with one decimal place.
+  startangle=90 starts the first slice at 90 degrees.
+
+plt.title("Order Status Distribution")
+  Adds the chart title.
+
+plt.ylabel("")
+  Removes the default vertical-axis label.
+
+plt.tight_layout()
+  Adjusts spacing.
+
+plt.show()
+  Displays the pie chart.
+
+C. BOX PLOT — ORDER TOTALS
+
+plt.figure(figsize=(8, 5))
+  Creates a graph area 8 inches wide and 5 inches high.
+
+df.boxplot(column="Total")
+  Creates a box plot for the Total column. It helps show the median,
+  spread of values and possible outliers.
+
+plt.title("Distribution of Order Totals")
+  Adds the chart title.
+
+plt.ylabel("Total")
+  Labels the vertical axis.
+
+plt.tight_layout()
+  Adjusts spacing.
+
+plt.show()
+  Displays the box plot.
+
+10. SAVE CLEANED DATA IN THREE FORMATS
+--------------------------------------
+df.to_csv("Cleaned_Sales.csv", index=False)
+  Saves df as a CSV file. index=False prevents Pandas from adding the
+  DataFrame's row index as an extra column.
+
+df.to_excel("Cleaned_Sales.xlsx", index=False)
+  Saves df as an Excel file, also without the row index.
+
+df.to_json("Cleaned_Sales.json", orient="records", date_format="iso", indent=4)
+  Saves df as JSON.
+  orient="records" stores each row as a separate JSON record/object.
+  date_format="iso" writes dates in ISO date format.
+  indent=4 makes the JSON file easier for humans to read.
+
+print("Cleaned data saved in CSV, Excel and JSON formats.")
+  Confirms that the save commands have been executed.
+
+11. CONCLUSION
+--------------
+The final five print statements report that:
+- Sales data was loaded from CSV, Excel and JSON.
+- Data was explored, cleaned, standardized and transformed.
+- Descriptive statistics and grouped sales analysis were performed.
+- Bar, pie and box plots were created.
+- The cleaned DataFrame was exported to CSV, Excel and JSON.
+
+BASIC VIVA QUESTIONS
+--------------------
+1. What is the aim of this practical?
+   To load sales data from different formats, clean and analyse it, visualize
+   the results and save the cleaned data in multiple formats.
+
+2. What is Pandas?
+   A Python library used to work with and analyse tabular data.
+
+3. What is a DataFrame?
+   A two-dimensional table with rows and columns.
+
+4. What are CSV, Excel and JSON?
+   CSV stores comma-separated tabular values; Excel stores spreadsheet data;
+   JSON stores structured data using key-value pairs and arrays.
+
+5. Why do we not combine the three input files?
+   They contain copies of the same records. Combining them would duplicate
+   sales and give incorrect totals.
+
+6. What does shape return?
+   A pair containing the number of rows and columns.
+
+7. What is EDA?
+   Exploring data to understand its structure, summary and quality.
+
+8. What is the difference between isnull() and duplicated()?
+   isnull() identifies missing values; duplicated() identifies repeated rows.
+
+9. What does describe() do?
+   Produces summary statistics such as mean, standard deviation, minimum
+   and maximum.
+
+10. Why use median to fill missing Quantity and Price?
+    Median is the middle value and is generally less affected by extreme
+    values than the mean.
+
+11. What is the difference between NaN and NaT?
+    NaN represents a missing numeric value; NaT represents a missing date/time.
+
+12. What does errors="coerce" do?
+    It converts invalid values to missing values instead of raising an error.
+
+13. What does groupby() do?
+    It groups rows by common values so we can calculate summaries for each group.
+
+14. What does value_counts() do?
+    It counts how often each distinct value appears.
+
+15. What does nunique() do?
+    It counts the number of distinct values.
+
+16. What is the purpose of a bar chart?
+    To compare values across categories.
+
+17. What is the purpose of a pie chart?
+    To show how categories make up a whole, usually as percentages.
+
+18. What is a box plot?
+    A graph that summarizes the distribution of data using quartiles and
+    the median, and can help identify possible outliers.
+
+19. What is an outlier?
+    A value that is unusually far from most other values.
+
+20. Why use index=False while saving?
+    To avoid saving the DataFrame row index as an extra data column.
+
+21. What does fillna() do?
+    Replaces missing values with a specified value.
+
+22. What does drop_duplicates() do?
+    Removes repeated rows.
+
+23. What is the purpose of np.nan in this practical?
+    It represents a missing value; here it prevents division by zero when
+    Quantity is zero.
+
+24. What does dt.year or dt.month do?
+    It extracts the year or month component from a datetime column.
+
+25. What does tight_layout() do?
+    Adjusts graph spacing to reduce overlap and prevent labels being cut off.
+
+CODE-SPECIFIC "WHY" / "WHAT IF" QUESTIONS
+-----------------------------------------
+1. Why use copy()?
+   To work on a separate DataFrame without modifying the original one.
+
+2. What happens if the three files have different columns?
+   The same_structure check returns False.
+
+3. Does same_structure prove the file contents are identical?
+   No. It checks column names/order and dimensions only.
+
+4. Why remove '$' and ',' before converting to numeric?
+   These characters can prevent text values such as "$1,200" from being
+   converted directly into numbers.
+
+5. Why is regex=False used in str.replace()?
+   It treats the search character literally rather than as a regex pattern.
+
+6. Why flag negative values instead of deleting them?
+   They might represent returns or other valid cases; the source does not
+   explain them, so they are kept for review.
+
+7. What if Quantity is zero in Average_Item_Value?
+   It is replaced with NaN for the division, avoiding division by zero.
+
+8. What does ascending=False mean?
+   Sort from highest to lowest.
+
+9. What happens if index=False is removed while exporting?
+   The DataFrame index is also written to the output file.
+
+10. What does autopct="%1.1f%%" mean?
+    It displays percentages with one digit after the decimal point.
+
+30-SECOND EXPLANATION FOR THE EXAMINER
+--------------------------------------
+This practical is about loading and analysing sales data stored in CSV,
+Excel and JSON formats. First, I imported Pandas, NumPy and Matplotlib and
+loaded the three files into DataFrames. I explored the data by checking
+columns, data types, missing values, duplicates and summary statistics.
+Since all three files contain the same records, I used one copy for analysis.
+I cleaned text, dates and numerical columns, handled missing values, and
+created new columns such as order year, month and average item value.
+Then I analysed sales by category, order status and payment method, created
+bar, pie and box plots, and exported the cleaned data into all three formats.
+
+END OF EXPERIMENT 7 NOTES

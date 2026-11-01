@@ -1,0 +1,591 @@
+EXPERIMENT 6 – DATA AGGREGATION
+Title: Analyzing Sales Performance by Region in a Retail Company
+Dataset: Global Superstore Dataset.csv
+
+============================================================
+1. WHAT THIS PRACTICAL DOES
+============================================================
+
+This practical analyses retail sales using the Global Superstore dataset. It groups sales by region, calculates total sales for each region, identifies the highest-performing region, groups sales by region and product category, and compares the results using graphs.
+
+The notebook uses:
+- Pandas: reading, grouping and analysing tabular data.
+- Matplotlib: displaying graphs.
+
+Dataset facts:
+- 9,800 rows and 17 columns.
+- Important columns used: Region, Category and Sales.
+- The dataset does NOT contain a quantity-sold column. Therefore, this practical analyses sales value only. It does not calculate units sold.
+
+Keep these files in the same folder:
+1. DMV_Experiment_6_Data_Aggregation.ipynb
+2. Global Superstore Dataset.csv
+
+Run the notebook cells from top to bottom.
+
+============================================================
+2. IMPORT THE DATASET – TASK 1, CELL 2
+============================================================
+
+Code:
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("Global Superstore Dataset.csv")
+print("Dataset imported successfully")
+
+Line-by-line:
+- import loads a library so that its functions can be used.
+- pandas is a Python library used to work with data arranged in rows and columns.
+- as pd gives Pandas a short name. Instead of writing pandas, we can write pd.
+- matplotlib.pyplot is the part of Matplotlib used to create graphs.
+- as plt gives pyplot the short name plt.
+- df is a variable that stores the dataset.
+- pd.read_csv(...) reads a CSV file and converts it into a Pandas DataFrame.
+- "Global Superstore Dataset.csv" is the name of the input file. It must be in the notebook's working folder.
+- print() displays a message confirming that the import statement ran.
+
+Important:
+The print message confirms that the code reached that line. It does not independently verify that every value in the dataset is correct.
+
+Viva:
+Q. What is Pandas?
+A. A Python library used for reading, cleaning, manipulating and analysing tabular data.
+
+Q. What is Matplotlib?
+A. A Python library used to create data visualizations such as bar charts, pie charts and line graphs.
+
+Q. What is a CSV file?
+A. CSV stands for Comma-Separated Values. It stores tabular data as text, with values separated by commas.
+
+Q. What is a DataFrame?
+A. A two-dimensional Pandas data structure arranged in rows and columns, similar to a table.
+
+Q. Why is the dataset stored in df?
+A. df is the variable name used to store the DataFrame so that later operations can be performed on it.
+
+============================================================
+3. EXPLORE THE DATASET – TASK 2, CELL 4
+============================================================
+
+Code:
+print("Shape:", df.shape)
+print("\\nColumns:")
+print(df.columns)
+print("\\nFirst five rows:")
+print(df.head())
+print("\\nDataset information:")
+df.info()
+
+Line-by-line:
+- df.shape returns the dimensions of the DataFrame as (rows, columns).
+- print() displays the dimensions.
+- "\\n" represents a new line in the displayed text.
+- df.columns returns the names of all columns in the DataFrame.
+- df.head() displays the first five rows by default.
+- df.info() displays a summary containing column names, non-null counts, data types and memory information.
+
+For this dataset:
+- Shape: 9800 rows and 17 columns.
+- The notebook later selects Region, Category and Sales for its analysis.
+
+Why explore first?
+Before analysing a dataset, we should understand its size, column names, sample records and data types. This helps us choose the correct columns and operations.
+
+Viva:
+Q. What does shape return?
+A. A tuple containing the number of rows and columns.
+
+Q. What does df.columns do?
+A. Returns the names of all columns.
+
+Q. What does head() do?
+A. Displays the first five rows by default. head(10) displays the first ten rows.
+
+Q. What does info() show?
+A. Column names, non-null counts, data types and memory usage.
+
+Q. What is the difference between head() and info()?
+A. head() displays sample records; info() displays structural information about the DataFrame.
+
+============================================================
+4. IDENTIFY RELEVANT VARIABLES – TASK 3, CELL 6
+============================================================
+
+Code:
+print("Relevant columns:")
+print(df[["Region", "Category", "Sales"]].head())
+
+print("\\nMissing values:")
+print(df[["Region", "Category", "Sales"]].isnull().sum())
+
+Line-by-line:
+- df[["Region", "Category", "Sales"]] selects only these three columns from the DataFrame.
+- Notice the double square brackets: the inner list contains the column names, and the outer brackets select them from df.
+- .head() displays the first five rows of these selected columns.
+- df[...].isnull() checks each selected cell and returns True if the value is missing, otherwise False.
+- .sum() counts the True values column-wise. In Pandas, True is treated as 1 and False as 0.
+- print() displays the missing-value counts.
+
+Why these three columns?
+- Region tells us which geographical region made the sale.
+- Category tells us the product category.
+- Sales tells us the sales amount.
+Together, these columns are sufficient for the regional and category-wise sales analysis in this notebook.
+
+Result for the supplied dataset:
+- Region: 0 missing values.
+- Category: 0 missing values.
+- Sales: 0 missing values.
+
+Viva:
+Q. What is a variable in programming?
+A. A named location used to store a value.
+
+Q. What does isnull() do?
+A. Checks for missing values and returns True where a value is missing.
+
+Q. Why use sum() after isnull()?
+A. To count the number of missing values in each selected column.
+
+Q. Why are double square brackets used?
+A. To select multiple columns and return them together as a DataFrame.
+
+Q. What is the difference between df["Sales"] and df[["Sales"]]?
+A. df["Sales"] returns a Series (one-dimensional). df[["Sales"]] returns a DataFrame (two-dimensional).
+
+============================================================
+5. CALCULATE TOTAL SALES FOR EACH REGION – TASK 4, CELL 8
+============================================================
+
+Code:
+region_sales = df.groupby("Region")["Sales"].sum().sort_values(ascending=False)
+print(region_sales)
+
+Break it into steps:
+
+1. df.groupby("Region")
+   Groups all rows that have the same Region value. For example, all West records form one group, all East records form another, and so on.
+
+2. ["Sales"]
+   Selects the Sales column from those groups. We only want to calculate sales totals.
+
+3. .sum()
+   Adds the Sales values within each region.
+
+4. .sort_values(ascending=False)
+   Sorts the resulting regional totals from highest to lowest.
+   - ascending=True means smallest to largest.
+   - ascending=False means largest to smallest.
+
+5. region_sales =
+   Stores the final sorted result in the variable region_sales.
+
+6. print(region_sales)
+   Displays the total sales for each region.
+
+Actual result for the supplied dataset (rounded to two decimal places):
+
+Region       Total Sales
+West         710,219.68
+East         669,518.73
+Central      492,646.91
+South        389,151.46
+
+What is aggregation?
+Aggregation means combining multiple records into a summary value. Here, many individual sales transactions are combined into one total for each region.
+
+Why group by Region?
+The aim is to compare sales performance across geographical regions. Grouping collects transactions belonging to the same region before calculating their total.
+
+Viva:
+Q. What is groupby()?
+A. A Pandas operation that divides rows into groups based on common values in one or more columns.
+
+Q. What is aggregation?
+A. Summarising multiple records using a function such as sum, mean, count, minimum or maximum.
+
+Q. What does sum() do here?
+A. Adds all Sales values belonging to each region.
+
+Q. What does sort_values() do?
+A. Sorts values in ascending or descending order.
+
+Q. What does ascending=False mean?
+A. Sort from highest to lowest.
+
+Q. What happens if ascending=True is used?
+A. The region with the smallest sales total appears first.
+
+Q. Can groupby() use more than one column?
+A. Yes. For example, groupby(["Region", "Category"]) creates groups based on both columns.
+
+============================================================
+6. VISUALIZE SALES DISTRIBUTION BY REGION – TASK 5, CELL 10
+============================================================
+
+PART A – BAR CHART
+
+Code:
+region_sales.plot(kind="bar", title="Total Sales by Region", ylabel="Sales", xlabel="Region")
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+Explanation:
+- region_sales.plot() creates a graph using the regional sales Series.
+- kind="bar" specifies a bar chart.
+- title gives the chart its heading.
+- ylabel="Sales" labels the vertical axis.
+- xlabel="Region" labels the horizontal axis.
+- plt.xticks(rotation=0) keeps the region labels horizontal.
+- plt.tight_layout() adjusts spacing so labels and chart elements fit properly.
+- plt.show() displays the graph.
+
+Why a bar chart?
+A bar chart makes it easy to compare total sales across regions. A taller bar represents a higher sales total.
+
+PART B – PIE CHART
+
+Code:
+region_sales.plot(kind="pie", autopct="%1.1f%%", title="Sales Distribution by Region")
+plt.ylabel("")
+plt.tight_layout()
+plt.show()
+
+Explanation:
+- kind="pie" creates a pie chart.
+- autopct="%1.1f%%" displays each region's share as a percentage, with one digit after the decimal point.
+  - % starts a formatting instruction.
+  - 1.1 means one decimal place.
+  - %% displays the percent sign.
+- title gives the pie chart a heading.
+- plt.ylabel("") removes the default y-axis label because it is not useful for this pie chart.
+- plt.tight_layout() adjusts spacing.
+- plt.show() displays the pie chart.
+
+Why a pie chart?
+It shows how each region contributes to the total sales across all four regions. All slices together represent 100%.
+
+Viva:
+Q. What is data visualization?
+A. Presenting data through visual forms such as charts and graphs to make comparisons and patterns easier to understand.
+
+Q. Why use a bar chart?
+A. To compare sales values across different regions.
+
+Q. Why use a pie chart?
+A. To show each region's proportion of the total sales.
+
+Q. What does autopct do?
+A. Displays percentage labels on the pie chart.
+
+Q. What does %1.1f%% mean?
+A. It formats a number as a percentage with one digit after the decimal point.
+
+Q. What does plt.show() do?
+A. Displays the created graph.
+
+Q. What is the difference between a bar chart and a pie chart?
+A. A bar chart compares actual values; a pie chart shows each category's share of the whole.
+
+============================================================
+7. IDENTIFY THE TOP-PERFORMING REGION – TASK 6, CELL 12
+============================================================
+
+Code:
+top_region = region_sales.idxmax()
+top_sales = region_sales.max()
+
+print("Top-performing region:", top_region)
+print("Total sales:", round(top_sales, 2))
+
+Line-by-line:
+- region_sales.idxmax() returns the index label where the maximum value occurs. Here, the index labels are region names.
+- top_region stores the name of the region with the highest sales.
+- region_sales.max() returns the maximum sales value.
+- top_sales stores that maximum value.
+- print() displays the region and its sales.
+- round(top_sales, 2) rounds the sales amount to two decimal places.
+
+Result for the supplied dataset:
+- Top-performing region: West
+- Total sales: 710219.68
+
+Important difference:
+- max() returns the maximum value.
+- idxmax() returns the label/index associated with that maximum value.
+
+Viva:
+Q. What does max() return?
+A. The highest value.
+
+Q. What does idxmax() return?
+A. The index label corresponding to the highest value.
+
+Q. Why are both max() and idxmax() used?
+A. max() gives the sales amount, while idxmax() gives the region name.
+
+Q. What does round(value, 2) do?
+A. Rounds the value to two decimal places.
+
+Q. Which region performs best in this dataset?
+A. West, with total sales of approximately 710,219.68.
+
+============================================================
+8. CALCULATE SALES BY REGION AND PRODUCT CATEGORY – TASK 7, CELL 14
+============================================================
+
+Code:
+region_category_sales = df.groupby(["Region", "Category"])["Sales"].sum().unstack()
+print(region_category_sales)
+
+Break it into steps:
+
+1. df.groupby(["Region", "Category"])
+   Groups records using two columns together.
+   For example, one group contains West-Furniture sales, another contains West-Technology sales, and so on.
+
+2. ["Sales"]
+   Selects the Sales column for calculation.
+
+3. .sum()
+   Adds the sales values inside every Region-Category group.
+
+4. .unstack()
+   Reshapes the grouped result. It moves the inner grouping level (Category) from the row index into separate columns.
+
+5. region_category_sales =
+   Stores the resulting table.
+
+6. print(...)
+   Displays the table.
+
+Result for the supplied dataset (rounded):
+
+Region     Furniture     Office Supplies     Technology
+Central    160,317.46    163,590.24           168,739.21
+East       206,461.39    199,940.81           263,116.53
+South      116,531.48    124,424.77           148,195.21
+West       245,348.25    217,466.51           247,404.93
+
+What does unstack() do?
+Before unstacking, the result has a hierarchical index containing Region and Category. unstack() pivots the inner index level, Category, into columns. This makes it easier to compare product categories side by side for each region.
+
+Viva:
+Q. Why group by two columns?
+A. To calculate sales separately for every combination of region and product category.
+
+Q. What does unstack() do?
+A. Moves an inner index level into columns, reshaping the result into a table.
+
+Q. What is a hierarchical or MultiIndex?
+A. An index with more than one level. Here, the grouped result uses Region and Category as index levels before unstacking.
+
+Q. What does the final table show?
+A. Each row represents a region, each column represents a product category, and each cell contains the total sales for that combination.
+
+============================================================
+9. COMPARE SALES ACROSS REGIONS AND PRODUCT CATEGORIES – TASK 8, CELL 16
+============================================================
+
+PART A – GROUPED BAR CHART
+
+Code:
+region_category_sales.plot(kind="bar", title="Sales by Region and Product Category")
+plt.xlabel("Region")
+plt.ylabel("Sales")
+plt.xticks(rotation=0)
+plt.legend(title="Product Category")
+plt.tight_layout()
+plt.show()
+
+Explanation:
+- region_category_sales.plot() plots the region-category summary table.
+- kind="bar" creates a bar chart. With multiple category columns, Pandas displays the category bars side by side for each region.
+- title gives the graph a heading.
+- plt.xlabel("Region") labels the horizontal axis.
+- plt.ylabel("Sales") labels the vertical axis.
+- plt.xticks(rotation=0) keeps region names horizontal.
+- plt.legend(title="Product Category") displays the legend and gives it a title.
+- plt.tight_layout() adjusts spacing.
+- plt.show() displays the graph.
+
+How to read it:
+For every region, compare the three bars: Furniture, Office Supplies and Technology. Their heights show the sales amounts for those categories.
+
+PART B – STACKED BAR CHART
+
+Code:
+region_category_sales.plot(kind="bar", stacked=True, title="Stacked Sales by Region and Product Category")
+plt.xlabel("Region")
+plt.ylabel("Sales")
+plt.xticks(rotation=0)
+plt.legend(title="Product Category")
+plt.tight_layout()
+plt.show()
+
+Explanation:
+- kind="bar" selects a bar chart.
+- stacked=True places the category bars on top of one another for each region instead of side by side.
+- The remaining commands label the axes, display the legend, adjust spacing and show the graph.
+
+How to read it:
+Each complete bar represents the combined sales of all three product categories for one region. The coloured sections show how much each category contributes to that regional total.
+
+Difference between grouped and stacked bar charts:
+- Grouped bar chart: category bars are side by side, making direct category comparisons easier.
+- Stacked bar chart: category values are placed on top of each other, making the total and each category's contribution visible.
+
+Viva:
+Q. What is a grouped bar chart?
+A. A chart in which bars for different categories appear side by side within each group.
+
+Q. What is a stacked bar chart?
+A. A chart in which category values are stacked on top of one another to show the total and its components.
+
+Q. What does stacked=True do?
+A. Stacks the category bars instead of displaying them side by side.
+
+Q. What does legend() do?
+A. Displays the labels that identify the plotted categories.
+
+Q. Which chart is better for comparing individual categories?
+A. A grouped bar chart is usually easier for direct side-by-side comparisons.
+
+Q. Which chart helps show the total and its composition?
+A. A stacked bar chart.
+
+============================================================
+10. CONCLUSION – WHAT TO SAY TO THE EXAMINER
+============================================================
+
+"In this practical, I analysed the Global Superstore retail dataset using Pandas and Matplotlib. First, I imported the CSV file and explored its dimensions, columns, sample records and data types. Then I selected Region, Category and Sales as the relevant variables and checked for missing values. I used groupby() and sum() to calculate total sales for each region and sorted the results in descending order. I visualized regional sales using bar and pie charts and used idxmax() to identify the top-performing region. Next, I grouped the data by Region and Category, used unstack() to create a comparison table, and visualized it using grouped and stacked bar charts. In the supplied dataset, the West region has the highest total sales. The dataset does not contain a quantity-sold column, so I performed sales-value analysis only."
+
+============================================================
+11. QUICK VIVA QUESTIONS
+============================================================
+
+1. What is the objective of this practical?
+   To analyse retail sales by region and product category using aggregation and visualization.
+
+2. Which dataset is used?
+   Global Superstore Dataset.csv.
+
+3. How many rows and columns are in the supplied dataset?
+   9,800 rows and 17 columns.
+
+4. Which libraries are imported?
+   Pandas and Matplotlib.
+
+5. Which three columns are mainly used?
+   Region, Category and Sales.
+
+6. What is data aggregation?
+   Combining records into summary values using functions such as sum or mean.
+
+7. Which function groups records?
+   groupby().
+
+8. Which function calculates total sales?
+   sum().
+
+9. Which function sorts the sales totals?
+   sort_values().
+
+10. What does ascending=False mean?
+    Sorts from highest to lowest.
+
+11. Which graph compares regional sales?
+    Bar chart.
+
+12. Which graph shows each region's percentage contribution?
+    Pie chart.
+
+13. Which function finds the highest sales amount?
+    max().
+
+14. Which function finds the name of the region with the highest sales?
+    idxmax().
+
+15. Which function reshapes the Region-Category grouped result?
+    unstack().
+
+16. What is a grouped bar chart?
+    A chart with category bars side by side for each region.
+
+17. What is a stacked bar chart?
+    A chart with category values stacked on top of one another.
+
+18. What does autopct do in a pie chart?
+    Displays percentage values on the slices.
+
+19. What does tight_layout() do?
+    Adjusts spacing to prevent labels and chart elements from overlapping.
+
+20. Which region has the highest sales in the supplied dataset?
+    West.
+
+21. What is the total sales of the West region?
+    Approximately 710,219.68.
+
+22. Does this dataset contain quantity sold?
+    No. It contains Region, Category and Sales, but no quantity-sold column.
+
+23. Can we calculate the number of products sold from this notebook?
+    No. The required quantity-sold field is not available, and we should not invent it.
+
+24. What does unstack() change?
+    It moves an inner index level into columns.
+
+25. Why do we use both grouped and stacked charts?
+    The grouped chart helps compare category values side by side; the stacked chart shows each category's contribution to the regional total.
+
+============================================================
+12. BASIC PYTHON / PANDAS SYNTAX QUESTIONS
+============================================================
+
+Q. What is a function?
+A. A reusable block of code that performs a task, such as sum() or print().
+
+Q. What is a method?
+A. A function called using an object, such as df.head() or region_sales.max().
+
+Q. What is a parameter?
+A. An input supplied to a function or method. For example, "Region" in groupby("Region").
+
+Q. What is a string?
+A. Text written inside quotation marks, such as "Sales".
+
+Q. What is a variable?
+A. A named reference used to store a value, such as df or region_sales.
+
+Q. What does the dot (.) mean in df.head()?
+A. It accesses a method or attribute associated with the object before the dot.
+
+Q. What does the equals sign (=) do?
+A. Assigns a value to a variable.
+
+Q. What is the difference between = and ==?
+A. = assigns a value; == checks equality.
+
+Q. What is the difference between sum() and mean()?
+A. sum() adds values; mean() calculates their average.
+
+Q. What is the difference between max() and idxmax()?
+A. max() returns the largest value; idxmax() returns the label where that value occurs.
+
+============================================================
+13. LIMITATIONS / POINTS TO REMEMBER
+============================================================
+
+- The notebook uses only the available fields in the supplied dataset.
+- The analysis focuses on sales value, not quantity sold.
+- Do not claim that the notebook calculates units sold; it does not.
+- The main comparison is among four regions: Central, East, South and West.
+- The product categories used are Furniture, Office Supplies and Technology.
+- The West region has the highest total sales in the supplied dataset.
+- A high sales value does not automatically mean the region sold the highest number of items. Quantity data would be needed to answer that.
+- The notebook checks missing values in Region, Category and Sales; the supplied dataset has zero missing values in these selected columns.
+
+END OF EXPERIMENT 6 – DATA AGGREGATION

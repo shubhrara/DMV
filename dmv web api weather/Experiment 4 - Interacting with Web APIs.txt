@@ -1,0 +1,678 @@
+EXPERIMENT 4 – INTERACTING WITH WEB APIs
+Problem: Analyzing Weather Data from OpenWeatherMap API
+Location: Pune, India
+
+============================================================
+1. WHAT THIS PRACTICAL DOES
+============================================================
+
+This practical gets weather forecast data for Pune from OpenWeatherMap, extracts useful fields, cleans the data, calculates statistics, creates graphs, groups readings by day, displays the location on a map, checks correlations and saves CSV files.
+
+IMPORTANT:
+- The supplied JSON contains 40 forecast records at 3-hour intervals (about five days).
+- This is forecast data, NOT historical weather data.
+- The notebook can run offline using the supplied JSON file.
+- A personal API key is needed only to fetch fresh live data.
+- The results cover one location and a short period, so they cannot support long-term seasonal conclusions.
+
+Files in the ZIP:
+- DMV_Experiment_4_Web_API_Weather_Simple.ipynb: notebook to run.
+- DMV_Experiment_4_Web_API_Weather_Simple_Executed.ipynb: notebook with outputs.
+- OpenWeatherMap_Pune_API_Response.json: saved API response for offline use.
+- api_key.txt: placeholder for your API key.
+- Pune_Weather_Cleaned.csv and Pune_Daily_Weather_Summary.csv: output files.
+
+============================================================
+2. IMPORT LIBRARIES – CELL 2
+============================================================
+
+Code:
+import pandas as pd
+import matplotlib.pyplot as plt
+import json
+
+Line-by-line:
+- import: loads a Python library so we can use its tools.
+- pandas: library for working with tabular data (rows and columns).
+- as pd: gives pandas the short name pd.
+- matplotlib.pyplot: plotting module used to create graphs.
+- as plt: short name used for plotting functions.
+- json: library to read JSON data.
+
+Viva:
+Q. What is Pandas?
+A. A Python library used to read, clean, manipulate and analyse structured data.
+
+Q. What is JSON?
+A. JavaScript Object Notation; a text format used to store and exchange structured data, commonly by web APIs.
+
+============================================================
+3. OPTIONAL LIVE API REQUEST – CELL 4
+============================================================
+
+Code:
+# Optional live API request
+import requests
+
+try:
+    key = open("api_key.txt").read().strip().split("=", 1)[1]
+    if key != "PASTE_YOUR_OWN_API_KEY_HERE":
+        url = "https://api.openweathermap.org/data/2.5/forecast"
+        params = {"q": "Pune,IN", "appid": key, "units": "metric"}
+        response = requests.get(url, params=params, timeout=20)
+        response.raise_for_status()
+        weather = response.json()
+        print("Fresh data downloaded from OpenWeatherMap.")
+    else:
+        raise ValueError("No API key entered")
+except Exception as e:
+    print("Using the supplied API response instead.")
+    with open("OpenWeatherMap_Pune_API_Response.json") as f:
+        weather = json.load(f)
+
+Line-by-line:
+- # starts a comment. Python ignores it; it is for people reading the code.
+- import requests loads the requests library, which sends HTTP requests to websites and APIs.
+- try begins a block where an error may occur. If an error happens, Python moves to except.
+- open("api_key.txt") opens the key file.
+- .read() reads the complete file as text.
+- .strip() removes extra spaces and newline characters from the beginning and end.
+- .split("=", 1) splits the text at the first equals sign into two parts.
+- [1] selects the second part, which is the API key.
+- if checks a condition.
+- != means “not equal to”. The code checks that the placeholder has been replaced by a real key.
+- url stores the OpenWeatherMap forecast API endpoint.
+- params is a dictionary containing request parameters:
+  - q: city and country code, Pune, India.
+  - appid: the user's API key.
+  - units: metric units, so temperature is in Celsius and wind speed is in metres per second.
+- requests.get(url, params=params, timeout=20) sends a GET request. timeout=20 means it will wait up to 20 seconds.
+- response.raise_for_status() raises an error if the server returns an unsuccessful HTTP status.
+- response.json() converts the JSON response into Python dictionaries and lists.
+- weather stores the API response.
+- print() displays a message.
+- else runs when the key is still the placeholder.
+- raise ValueError(...) deliberately raises an error to activate the fallback.
+- except Exception as e catches an error. e stores the error details, though this code does not print them.
+- with open(...) as f opens the supplied JSON file. with automatically closes the file afterwards.
+- json.load(f) reads the JSON file and converts it into Python data.
+
+What is an API?
+API means Application Programming Interface. It allows one software application to request data or services from another application. Here, our Python program requests weather information from OpenWeatherMap.
+
+GET request:
+A GET request asks a server to return information. It is used here to retrieve forecast data.
+
+Why is there a fallback?
+If there is no API key, no internet, or the request fails, the notebook loads the saved JSON response. This makes the practical usable offline.
+
+Security:
+Never share your real API key or upload it publicly. Keep api_key.txt private.
+
+Viva:
+Q. What is OpenWeatherMap?
+A. A weather service that provides weather information through APIs.
+
+Q. What is an API key?
+A. A unique credential used to identify and authorize an application making API requests.
+
+Q. What is the difference between JSON and a Python dictionary?
+A. JSON is a text data format. A Python dictionary is an in-memory Python data structure. json.load() converts JSON text into Python objects.
+
+Q. Why use try and except?
+A. To handle errors without immediately stopping the program and to use the saved response if the live request fails.
+
+Q. What does raise_for_status() do?
+A. It raises an exception for an unsuccessful HTTP response, such as a client or server error.
+
+Q. What does units="metric" mean?
+A. It requests metric units, including temperature in Celsius.
+
+============================================================
+4. EXTRACT WEATHER DATA – CELL 6
+============================================================
+
+Code:
+rows = []
+for item in weather["list"]:
+    rows.append({
+        "datetime": item["dt_txt"],
+        "temperature": item["main"]["temp"],
+        "humidity": item["main"]["humidity"],
+        "wind_speed": item["wind"]["speed"],
+        "rainfall": item.get("rain", {}).get("3h", 0)
+    })
+
+df = pd.DataFrame(rows)
+df.head()
+
+Line-by-line:
+- rows = [] creates an empty list. We will store one dictionary per forecast record in it.
+- for item in weather["list"]: loops through every forecast item in the list.
+- weather["list"] accesses the list of forecast records inside the API response.
+- item is the current forecast record during each loop.
+- rows.append(...) adds a new dictionary to the rows list.
+- A dictionary stores information as key:value pairs.
+- "datetime": item["dt_txt"] extracts the date and time text.
+- item["main"]["temp"] accesses the temperature inside the main section.
+- item["main"]["humidity"] extracts humidity percentage.
+- item["wind"]["speed"] extracts wind speed.
+- item.get("rain", {}) safely accesses the rain section. If rain is absent, it returns an empty dictionary.
+- .get("3h", 0) gets rainfall for the previous 3-hour period. If the key is absent, it uses 0.
+- df = pd.DataFrame(rows) converts the list of dictionaries into a Pandas DataFrame (table).
+- df.head() displays the first five rows by default.
+
+Why use get() for rainfall?
+Some forecast records may not contain a rain field. Direct indexing could cause a KeyError. get() provides a default value of 0 when the field is missing.
+
+Viva:
+Q. What is a DataFrame?
+A. A two-dimensional table in Pandas with rows and columns.
+
+Q. What is a list?
+A. An ordered, changeable collection of Python items.
+
+Q. What is a dictionary?
+A. A collection of key:value pairs.
+
+Q. Why use append()?
+A. To add each extracted record to the rows list.
+
+Q. What does head() do?
+A. Displays the first five rows by default. head(10) displays the first ten.
+
+Q. Why is rainfall assigned 0 when missing?
+A. The code treats an absent rainfall field as zero rainfall for that forecast interval. This is the practical's chosen assumption.
+
+============================================================
+5. EXPLORE AND CLEAN THE DATA – CELL 8
+============================================================
+
+Code:
+print("Shape:", df.shape)
+print(df.info())
+print("\\nMissing values before cleaning:")
+print(df.isnull().sum())
+
+df["datetime"] = pd.to_datetime(df["datetime"])
+for col in ["temperature", "humidity", "wind_speed", "rainfall"]:
+    df[col] = pd.to_numeric(df[col], errors="coerce")
+    df[col] = df[col].fillna(df[col].median())
+
+df = df.drop_duplicates().sort_values("datetime").reset_index(drop=True)
+print("\\nMissing values after cleaning:", df.isnull().sum().sum())
+
+Line-by-line:
+- df.shape returns a tuple: (number of rows, number of columns).
+- df.info() displays column names, data types and non-null counts.
+- df.isnull() checks every cell and returns True for missing values.
+- .sum() counts missing values column-wise.
+- pd.to_datetime() converts the datetime column into Pandas datetime values so dates and times can be analysed properly.
+- for col in [...] loops through the four numeric weather columns.
+- df[col] selects the current column.
+- pd.to_numeric(..., errors="coerce") converts values into numbers. Invalid values become NaN.
+- NaN means Not a Number and is used to represent missing/invalid numeric data.
+- .median() calculates the middle value of the column after sorting.
+- .fillna(...) replaces missing values with that column's median.
+- df.drop_duplicates() removes repeated rows.
+- .sort_values("datetime") sorts records by date and time.
+- .reset_index(drop=True) creates a fresh 0,1,2... index. drop=True prevents the old index from becoming a new column.
+- df.isnull().sum().sum() counts all missing values across the whole DataFrame.
+- "\\n" represents a new line in the printed message.
+
+Why convert datetime?
+Text dates are not as useful for date calculations, sorting by actual time, or extracting the date. Datetime format supports these operations.
+
+Why use median?
+The median is less affected by unusually high or low values than the mean. It is used here to fill missing numeric values.
+
+Important detail:
+The code fills missing numeric values with the median of each column. It does not fill missing datetime values. Also, rainfall missing from the original API record was already assigned 0 during extraction.
+
+Viva:
+Q. What is data cleaning?
+A. Finding and handling missing, invalid, duplicate or inconsistent data.
+
+Q. What does shape return?
+A. A pair containing row count and column count.
+
+Q. What is NaN?
+A. A marker used for missing or invalid numeric values.
+
+Q. Mean vs median?
+A. Mean is the sum divided by the count. Median is the middle value after sorting. Median is generally less affected by outliers.
+
+Q. What does errors="coerce" do?
+A. Invalid values are converted to NaN instead of causing a conversion error.
+
+Q. Why drop duplicates?
+A. To avoid counting the same record more than once.
+
+Q. Why reset the index?
+A. To give the cleaned, sorted DataFrame a fresh continuous index.
+
+============================================================
+6. CALCULATE WEATHER STATISTICS – CELL 10
+============================================================
+
+Code:
+print("Average temperature:", round(df["temperature"].mean(), 2), "°C")
+print("Maximum temperature:", round(df["temperature"].max(), 2), "°C")
+print("Minimum temperature:", round(df["temperature"].min(), 2), "°C")
+print("Average humidity:", round(df["humidity"].mean(), 2), "%")
+print("Average wind speed:", round(df["wind_speed"].mean(), 2), "m/s")
+print("Total forecast rainfall:", round(df["rainfall"].sum(), 2), "mm")
+
+Explanation:
+- df["temperature"] selects the temperature column.
+- .mean() calculates its average.
+- .max() returns the highest value.
+- .min() returns the lowest value.
+- .sum() adds all values in the column.
+- round(value, 2) rounds the result to two decimal places.
+- print() displays the label, result and unit.
+- °C means degrees Celsius; % means percentage; m/s means metres per second; mm means millimetres.
+
+Interpretation:
+The code calculates average, maximum and minimum forecast temperature, average humidity, average wind speed and total rainfall across the forecast records.
+
+Viva:
+Q. What is descriptive statistics?
+A. Numerical summaries that describe the main features of a dataset.
+
+Q. Why round to two decimal places?
+A. To make displayed results easier to read.
+
+Q. Why is rainfall summed?
+A. To estimate the total forecast rainfall across all the 3-hour records in this dataset.
+
+============================================================
+7. VISUALIZE TEMPERATURE, RAINFALL AND WIND SPEED – CELL 12
+============================================================
+
+Code:
+df.plot(x="datetime", y="temperature", kind="line", marker="o",
+        title="Pune Temperature Forecast", figsize=(9, 4), grid=True)
+plt.ylabel("Temperature (°C)")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+df.plot(x="datetime", y="rainfall", kind="bar",
+        title="Rainfall Forecast", figsize=(9, 4))
+plt.ylabel("Rainfall (mm per 3 hours)")
+plt.tight_layout()
+plt.show()
+
+df.plot(x="datetime", y="wind_speed", kind="line", marker="o",
+        title="Wind Speed Forecast", figsize=(9, 4), grid=True)
+plt.ylabel("Wind speed (m/s)")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+Explanation:
+- df.plot() creates a graph directly from the DataFrame.
+- x="datetime" uses date/time on the horizontal axis.
+- y selects the column to plot on the vertical axis.
+- kind="line" creates a line graph.
+- kind="bar" creates a bar graph.
+- marker="o" puts a circular marker at each data point.
+- title gives the graph a heading.
+- figsize=(9, 4) sets the figure size in inches (width 9, height 4).
+- grid=True displays grid lines.
+- plt.ylabel() sets the vertical-axis label.
+- plt.xticks(rotation=45) rotates x-axis labels by 45 degrees so they are easier to read.
+- plt.tight_layout() adjusts spacing to reduce overlapping labels.
+- plt.show() displays the graph.
+
+Why these graph types?
+- Line graphs show how temperature and wind speed change over time.
+- A bar graph makes rainfall amount at each forecast interval easy to compare.
+
+Viva:
+Q. What is data visualization?
+A. Representing data using graphs or charts so patterns and comparisons are easier to understand.
+
+Q. When do we use a line graph?
+A. To show trends or changes over an ordered sequence, especially time.
+
+Q. When do we use a bar graph?
+A. To compare values across separate categories or intervals.
+
+Q. What does figsize mean?
+A. The width and height of the figure in inches.
+
+Q. Why rotate date labels?
+A. To prevent long date/time labels from overlapping.
+
+============================================================
+8. DAILY AGGREGATION – CELL 14
+============================================================
+
+Code:
+df["date"] = df["datetime"].dt.date
+daily = df.groupby("date").agg(
+    avg_temperature=("temperature", "mean"),
+    max_temperature=("temperature", "max"),
+    avg_humidity=("humidity", "mean"),
+    total_rainfall=("rainfall", "sum")
+).reset_index()
+
+display(daily.round(2))
+daily.plot(x="date", y="avg_temperature", kind="bar",
+           title="Daily Average Temperature", legend=False, figsize=(8, 4))
+plt.ylabel("Temperature (°C)")
+plt.tight_layout()
+plt.show()
+
+Line-by-line:
+- df["datetime"].dt accesses datetime-specific properties and methods.
+- .date extracts only the date and removes the time part.
+- df["date"] = ... creates a new date column.
+- df.groupby("date") groups all records belonging to the same date.
+- .agg() calculates multiple summary values for each group.
+- avg_temperature=("temperature", "mean") calculates the mean temperature per date.
+- max_temperature=("temperature", "max") calculates the highest temperature per date.
+- avg_humidity=("humidity", "mean") calculates average humidity per date.
+- total_rainfall=("rainfall", "sum") adds rainfall values per date.
+- .reset_index() turns the grouped date index back into a normal column.
+- display(daily.round(2)) displays the daily table rounded to two decimal places.
+- daily.plot(...) plots daily average temperature as a bar chart.
+- legend=False hides the legend because only one column is plotted.
+- figsize=(8, 4) sets the graph dimensions.
+- Remaining Matplotlib commands label, arrange and display the graph.
+
+What is aggregation?
+Aggregation means combining multiple records into a summary, such as calculating the average temperature for each day.
+
+Why group by date?
+The original data has readings every three hours. Grouping by date combines the readings for the same day into daily summaries.
+
+Viva:
+Q. What is groupby()?
+A. It divides rows into groups based on common values in a column.
+
+Q. What is agg()?
+A. It applies one or more aggregation functions, such as mean, max and sum, to each group.
+
+Q. Difference between mean and sum aggregation?
+A. Mean calculates the average; sum adds all values.
+
+Q. Why extract date from datetime?
+A. To group readings by calendar day, regardless of their time.
+
+============================================================
+9. LOCATION / GEOGRAPHICAL INFORMATION – CELL 16
+============================================================
+
+Code:
+# Coordinates are supplied by the API response.
+print("City:", weather["city"]["name"])
+print("Latitude:", weather["city"]["coord"]["lat"])
+print("Longitude:", weather["city"]["coord"]["lon"])
+
+# Optional map (install folium with: pip install folium)
+import folium
+m = folium.Map(
+    location=[weather["city"]["coord"]["lat"], weather["city"]["coord"]["lon"]],
+    zoom_start=10
+)
+folium.Marker(
+    [weather["city"]["coord"]["lat"], weather["city"]["coord"]["lon"]],
+    popup="Pune Weather"
+).add_to(m)
+m
+
+Explanation:
+- weather["city"]["name"] gets the city name from the API response.
+- weather["city"]["coord"]["lat"] gets latitude.
+- weather["city"]["coord"]["lon"] gets longitude.
+- Latitude and longitude are geographic coordinates used to identify a location.
+- import folium loads Folium, a Python library for interactive maps.
+- folium.Map() creates a map.
+- location=[latitude, longitude] sets the map's centre.
+- zoom_start=10 sets the initial zoom level.
+- folium.Marker() creates a marker at the given coordinates.
+- popup="Pune Weather" is the text shown when the marker is clicked.
+- .add_to(m) adds the marker to map m.
+- m displays the map in a Jupyter Notebook.
+
+Note:
+Folium must be installed for this cell to work. Install it with: pip install folium
+
+Viva:
+Q. What is latitude?
+A. A coordinate that tells how far north or south a place is from the Equator.
+
+Q. What is longitude?
+A. A coordinate that tells how far east or west a place is from the Prime Meridian.
+
+Q. What is Folium?
+A. A Python library for creating interactive maps, commonly using Leaflet maps.
+
+Q. What does zoom_start do?
+A. Sets the initial zoom level of the map.
+
+============================================================
+10. CORRELATION BETWEEN WEATHER ATTRIBUTES – CELL 18
+============================================================
+
+Code:
+corr = df[["temperature", "humidity", "wind_speed", "rainfall"]].corr()
+plt.imshow(corr, cmap="coolwarm", vmin=-1, vmax=1)
+plt.colorbar(label="Correlation")
+plt.xticks(range(4), corr.columns, rotation=30)
+plt.yticks(range(4), corr.columns)
+plt.title("Weather Attribute Correlation")
+for i in range(4):
+    for j in range(4):
+        plt.text(j, i, round(corr.iloc[i, j], 2), ha="center", va="center")
+plt.tight_layout()
+plt.show()
+
+Line-by-line:
+- df[[...]] selects the four weather columns. Double square brackets are used to select multiple columns.
+- .corr() calculates pairwise correlation between the selected numeric columns. By default, Pandas uses Pearson correlation.
+- corr stores the resulting correlation matrix.
+- plt.imshow(corr, ...) displays the matrix as a coloured image (heatmap-like display).
+- cmap="coolwarm" selects the colour map.
+- vmin=-1 and vmax=1 set the colour scale limits because correlation ranges from -1 to +1.
+- plt.colorbar() displays the colour scale.
+- plt.xticks(range(4), corr.columns, rotation=30) labels the four x-axis positions with column names and rotates them 30 degrees.
+- plt.yticks(...) does the same for the y-axis.
+- plt.title() adds the chart title.
+- for i in range(4) loops through row positions 0 to 3.
+- for j in range(4) loops through column positions 0 to 3.
+- corr.iloc[i, j] accesses the value at row i and column j using integer positions.
+- plt.text(j, i, ...) writes the rounded correlation value inside the corresponding cell.
+- ha="center" horizontally centres the text.
+- va="center" vertically centres the text.
+- plt.tight_layout() adjusts spacing.
+- plt.show() displays the chart.
+
+How to interpret correlation:
+- +1: perfect positive linear relationship.
+- 0: no linear relationship.
+- -1: perfect negative linear relationship.
+- Positive: when one variable increases, the other tends to increase.
+- Negative: when one increases, the other tends to decrease.
+- Correlation does NOT prove causation.
+
+Viva:
+Q. What is correlation?
+A. A measure of the strength and direction of the relationship between two variables.
+
+Q. What is a correlation matrix?
+A. A table showing correlation values for every pair of selected variables.
+
+Q. What does iloc do?
+A. Selects rows and columns by integer position.
+
+Q. Why are the scale limits -1 and +1?
+A. Because correlation coefficients lie between -1 and +1.
+
+Q. Does correlation mean causation?
+A. No. Correlation alone does not prove that one variable causes another.
+
+Q. What is the diagonal of a correlation matrix?
+A. It contains 1.0 because each variable is perfectly correlated with itself.
+
+============================================================
+11. EXPORT CLEANED DATA – CELL 20
+============================================================
+
+Code:
+df.to_csv("Pune_Weather_Cleaned.csv", index=False)
+daily.to_csv("Pune_Daily_Weather_Summary.csv", index=False)
+print("Cleaned and daily summary files saved.")
+
+Explanation:
+- df.to_csv() saves the cleaned detailed weather DataFrame as a CSV file.
+- "Pune_Weather_Cleaned.csv" is the output filename.
+- index=False prevents Pandas from writing the DataFrame's row index as an extra column.
+- daily.to_csv() saves the daily aggregated summary.
+- print() confirms that the save commands have run.
+
+Difference between the two output files:
+- Pune_Weather_Cleaned.csv: detailed forecast records, approximately one row per 3-hour forecast.
+- Pune_Daily_Weather_Summary.csv: one row per date with daily averages, maximum temperature and total rainfall.
+
+Viva:
+Q. What is CSV?
+A. Comma-Separated Values, a simple text format for storing tabular data.
+
+Q. Why use index=False?
+A. To avoid saving the DataFrame index as an unwanted extra column.
+
+Q. Why save both files?
+A. One preserves cleaned detailed readings; the other provides a compact daily summary.
+
+============================================================
+12. CONCLUSION – WHAT TO SAY
+============================================================
+
+"In this practical, I analysed Pune weather forecast data using the OpenWeatherMap API response. First, I imported Pandas, Matplotlib and JSON libraries. I optionally connected to the live API, with a saved JSON file as an offline fallback. Then I extracted date and time, temperature, humidity, wind speed and rainfall into a DataFrame. I converted data types, handled missing numeric values, removed duplicates and sorted the records. After that, I calculated weather statistics and plotted temperature, rainfall and wind speed. I grouped the readings date-wise to calculate daily summaries, displayed Pune's geographical coordinates on a Folium map, analysed correlations between weather attributes and exported both detailed and daily summary data to CSV files."
+
+============================================================
+13. QUICK VIVA REVISION
+============================================================
+
+1. What is the full form of API?
+   Application Programming Interface.
+
+2. Which API is used?
+   OpenWeatherMap forecast API.
+
+3. Which HTTP method is used?
+   GET.
+
+4. What is the purpose of the API key?
+   It identifies and authorizes the application making the request.
+
+5. What is the offline data source?
+   OpenWeatherMap_Pune_API_Response.json.
+
+6. How many forecast records are in the supplied response?
+   40 records at 3-hour intervals, covering about five days.
+
+7. Is this historical or forecast data?
+   Forecast data.
+
+8. Which library is used for tabular data?
+   Pandas.
+
+9. Which library is used for graphs?
+   Matplotlib.
+
+10. Which library reads the saved JSON response?
+    json.
+
+11. Which library sends the web request?
+    requests.
+
+12. Which library creates the interactive map?
+    Folium.
+
+13. What is the purpose of to_datetime()?
+    Converts text/date values into datetime objects.
+
+14. What is the purpose of fillna()?
+    Replaces missing values.
+
+15. What is the purpose of drop_duplicates()?
+    Removes duplicate rows.
+
+16. What is the purpose of sort_values()?
+    Sorts rows based on a selected column.
+
+17. What is the purpose of groupby()?
+    Groups records with the same date.
+
+18. What is the purpose of agg()?
+    Calculates summary values for each group.
+
+19. What is the purpose of corr()?
+    Calculates pairwise correlations.
+
+20. What is the range of a correlation coefficient?
+    -1 to +1.
+
+21. What is the purpose of to_csv()?
+    Exports a DataFrame to a CSV file.
+
+22. Why is the rainfall field accessed using get()?
+    Because some forecast records may not contain a rainfall field.
+
+23. Why is median used for missing numeric values?
+    It is less affected by extreme values than the mean.
+
+24. Can this dataset show seasonal weather patterns?
+    No. It covers only about five days and one location.
+
+============================================================
+14. IMPORTANT CODE/SYNTAX QUESTIONS
+============================================================
+
+Q. What is the difference between [] and ()?
+A. Square brackets are used for indexing and lists; parentheses are used for function calls and tuples.
+
+Q. What is the difference between = and ==?
+A. = assigns a value. == checks whether two values are equal.
+
+Q. What does != mean?
+A. Not equal to.
+
+Q. What is a loop?
+A. A structure that repeats a block of code. Here, for loops through forecast records and correlation matrix positions.
+
+Q. What is a try-except block?
+A. A way to handle runtime errors and run fallback code.
+
+Q. What is a parameter?
+A. An input supplied to a function, such as timeout=20 in requests.get().
+
+Q. What is a method?
+A. A function associated with an object, such as df.head() or df.to_csv().
+
+Q. What does .get(key, default) do?
+A. Returns the value for a key if it exists; otherwise returns the default.
+
+Q. What is the difference between df["column"] and df[["column1", "column2"]]?
+A. The first selects one column as a Series; the second selects multiple columns as a DataFrame.
+
+============================================================
+15. LIMITATIONS / POINTS TO REMEMBER
+============================================================
+
+- The supplied dataset contains only about five days of forecast data.
+- It represents only Pune, not multiple cities.
+- It must not be described as historical weather data.
+- The code assumes a missing rainfall field means 0 mm for that 3-hour period.
+- Numeric missing values are filled using the median of their columns.
+- The correlation chart shows association, not cause and effect.
+- A live API request needs internet access and a valid API key.
+- The offline fallback needs the JSON file to be in the notebook's working folder.
+- The Folium cell needs Folium installed.
+
+END OF EXPERIMENT 4

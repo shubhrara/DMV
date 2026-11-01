@@ -1,0 +1,996 @@
+EXPERIMENT 3: DATA CLEANING AND PREPARATION
+Problem Statement: Analyzing Customer Churn in a Telecommunications Company
+
+AIM
+To explore, clean, standardize and prepare a telecom customer dataset; create useful features; encode categorical variables; scale numerical features; split the data into training and testing sets; and export the results for future customer-churn modelling.
+
+DATASET
+- File: Telecom_Customer_Churn.csv
+- Original Kaggle filename: WA_Fn-UseC_-Telco-Customer-Churn.csv
+- Dataset: Standard Telco Customer Churn dataset.
+- Number of customer records: 7,043.
+- Target column: Churn (Yes/No).
+- Customer identifier: customerID.
+- Important numeric columns: tenure, MonthlyCharges, TotalCharges, SeniorCitizen.
+- The practical uses Pandas, NumPy, Matplotlib, Seaborn and Scikit-learn.
+- The dataset has a special cleaning issue: TotalCharges is stored as text and blank/space-only values must be converted to missing numeric values.
+- The notebook keeps valid high values and removes only impossible domain values. It does not blindly delete or cap every IQR-flagged value.
+- The train/test split is performed before scaling; StandardScaler is fitted only on training data to avoid data leakage.
+
+------------------------------------------------------------
+1. IMPORT LIBRARIES
+------------------------------------------------------------
+
+import pandas as pd
+- Imports Pandas, a Python library for working with tabular data.
+- pd is the short alias used to access Pandas functions.
+
+import numpy as np
+- Imports NumPy, used for numerical calculations and array operations.
+- np is its short alias.
+
+import matplotlib.pyplot as plt
+- Imports Matplotlib's plotting module.
+- plt is used to create graphs.
+
+import seaborn as sns
+- Imports Seaborn, a statistical data-visualization library built on Matplotlib.
+- sns is its short alias.
+- It is used here to create boxplots.
+
+from sklearn.model_selection import train_test_split
+- Imports train_test_split() from Scikit-learn.
+- This function divides data into training and testing sets.
+
+from sklearn.preprocessing import StandardScaler
+- Imports StandardScaler from Scikit-learn.
+- It standardizes numerical features so they have approximately zero mean and unit standard deviation.
+
+from pathlib import Path
+- Imports Path, which provides a convenient way to work with file paths.
+- It is used to define the dataset path.
+
+DATA_PATH = Path("Telecom_Customer_Churn.csv")
+- Creates a Path object for the input CSV file.
+- DATA_PATH stores the location of the dataset.
+- The CSV must be in the same folder as the notebook, or the path must be changed.
+
+2. IMPORT THE DATASET
+
+df = pd.read_csv(DATA_PATH)
+- pd.read_csv() reads the CSV file into a Pandas DataFrame.
+- DATA_PATH tells Pandas which file to read.
+- df is the variable storing the complete dataset.
+
+print("Dataset imported successfully")
+- Displays a confirmation message.
+
+print("Shape:", df.shape)
+- shape returns a tuple: (number of rows, number of columns).
+- The original dataset contains 7,043 customer records.
+
+display(df.head())
+- head() displays the first five rows by default.
+- display() presents the DataFrame neatly in Jupyter Notebook.
+
+3. EXPLORE THE DATASET
+
+print("Rows and columns:", df.shape)
+- Displays the number of rows and columns.
+
+print("\nColumn names:\n", df.columns.tolist())
+- columns returns all column labels.
+- tolist() converts them into a normal Python list.
+- \n inserts a new line in the output.
+
+print("\nDataset information:")
+df.info()
+- info() displays column names, non-null counts, data types and memory usage.
+- It helps identify text/numeric columns and missing values.
+
+print("\nNumerical summary:")
+display(df.describe())
+- describe() calculates summary statistics for numeric columns.
+- It normally includes count, mean, standard deviation, minimum, quartiles and maximum.
+- display() presents the summary table.
+
+print("\nMissing values in each column:")
+print(df.isna().sum())
+- isna() identifies missing values.
+- sum() counts missing values in each column.
+
+print("\nDuplicate rows:", df.duplicated().sum())
+- duplicated() marks rows that are exact duplicates of earlier rows.
+- sum() counts the duplicate rows.
+
+Why explore first?
+It helps us understand the data structure, identify incorrect data types, detect missing values and check duplicates before cleaning.
+
+4. HANDLE MISSING VALUES AND CORRECT DATA TYPES
+
+for col in df.select_dtypes(include="object").columns:
+- select_dtypes(include="object") selects text/object columns.
+- .columns gets their names.
+- for repeats the indented operation for each column.
+- col represents the current column name.
+
+    df[col] = df[col].str.strip()
+    - Selects the current text column.
+    - .str allows string operations on its values.
+    - strip() removes extra spaces from the beginning and end of each text value.
+    - The cleaned values are assigned back to the same column.
+
+df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
+- TotalCharges is originally stored as text, even though it represents a numeric amount.
+- pd.to_numeric() converts its values into numeric form.
+- errors="coerce" converts values that cannot be interpreted as numbers into NaN (missing values).
+- The converted values are assigned back to TotalCharges.
+
+print("Missing values before treatment:")
+print(df.isna().sum()[df.isna().sum() > 0])
+- isna().sum() counts missing values in every column.
+- The second part [ ... > 0] selects only columns whose missing-value count is greater than zero.
+- This displays columns that actually have missing values.
+
+zero_tenure = df["tenure"].eq(0)
+- Selects the tenure column.
+- eq(0) checks which customers have tenure equal to zero.
+- It creates a True/False Boolean Series.
+- zero_tenure stores that condition.
+
+df.loc[zero_tenure & df["TotalCharges"].isna(), "TotalCharges"] = 0
+- .loc selects rows and columns using labels/conditions.
+- zero_tenure selects customers whose tenure is zero.
+- df["TotalCharges"].isna() selects rows where TotalCharges is missing.
+- & means AND: both conditions must be True.
+- The second argument "TotalCharges" selects the column to update.
+- Those missing TotalCharges values are replaced with 0.
+- Reason: a customer with zero months of service has not accumulated monthly charges, so zero is meaningful.
+
+for col in df.select_dtypes(include=np.number).columns:
+- Selects all numeric columns using NumPy's number data type category.
+- Loops through each numeric column.
+
+    if df[col].isna().any():
+    - isna() checks missing values.
+    - any() returns True if at least one value is missing.
+    - The fill operation runs only if the column contains missing values.
+
+        df[col] = df[col].fillna(df[col].median())
+        - median() calculates the middle value of the numeric column.
+        - fillna() replaces missing values with that median.
+        - The cleaned column is assigned back to df.
+
+for col in df.select_dtypes(include="object").columns:
+- Selects the text/object columns and loops through them.
+
+    if df[col].isna().any():
+    - Checks whether the current text column contains any missing values.
+
+        df[col] = df[col].fillna(df[col].mode()[0])
+        - mode() returns the most frequently occurring value.
+        - [0] selects the first mode if multiple modes exist.
+        - fillna() replaces missing values with that category.
+        - The updated column is assigned back to df.
+
+print("\nMissing values after treatment:", int(df.isna().sum().sum()))
+- The first sum() counts missing values per column.
+- The second sum() adds those counts to get the overall total.
+- int() converts the result to a standard integer.
+- Prints the total remaining missing values.
+
+print("TotalCharges type:", df["TotalCharges"].dtype)
+- dtype displays the data type of the TotalCharges column.
+- It should now be numeric.
+
+Why use different missing-value methods?
+- Zero is used for TotalCharges when tenure is zero because it has a specific business meaning.
+- Remaining numeric gaps are filled with median.
+- Remaining categorical gaps are filled with mode.
+
+5. REMOVE DUPLICATE RECORDS
+
+rows_before = len(df)
+- len(df) returns the current number of rows.
+- Stores the count before duplicate removal.
+
+duplicate_rows = int(df.duplicated().sum())
+- duplicated() identifies exact duplicate rows.
+- sum() counts them.
+- int() converts the count to an integer.
+- Stores the number of duplicate rows.
+
+df = df.drop_duplicates().copy()
+- drop_duplicates() removes exact duplicate rows.
+- copy() creates a separate DataFrame from the result.
+- The cleaned DataFrame is assigned back to df.
+
+duplicate_ids = int(df["customerID"].duplicated().sum())
+- Checks repeated customer IDs after exact duplicate rows have been removed.
+- customerID is intended to uniquely identify each customer.
+- Counts repeated IDs.
+
+df = df.drop_duplicates(subset="customerID", keep="first").copy()
+- drop_duplicates(subset="customerID") checks duplicates only in the customerID column.
+- keep="first" retains the first row for a repeated ID and removes later rows with that ID.
+- copy() creates a separate DataFrame.
+- The result is assigned back to df.
+
+print("Duplicate rows found:", duplicate_rows)
+print("Repeated customer IDs found:", duplicate_ids)
+print("Rows removed:", rows_before - len(df))
+print("Shape after duplicate removal:", df.shape)
+- Displays exact duplicate count, repeated-ID count, number of rows removed and final shape after duplicate removal.
+- rows_before - len(df) calculates the number of rows removed in total.
+
+Important difference:
+- Exact duplicate rows have all column values repeated.
+- Duplicate customer IDs mean the identifier is repeated; other columns may differ.
+- The notebook keeps the first record for each customer ID.
+
+6. STANDARDIZE INCONSISTENT DATA
+
+for col in df.select_dtypes(include="object").columns:
+    df[col] = df[col].str.strip()
+- Loops through all text columns.
+- strip() removes extra spaces around text values.
+- This is repeated as a general standardization step.
+
+df["gender"] = df["gender"].str.title()
+- title() converts the first letter of each word to uppercase and the remaining letters to lowercase.
+- For example, "female" becomes "Female".
+
+for col in ["Partner", "Dependents", "PhoneService", "PaperlessBilling", "Churn"]:
+    df[col] = df[col].str.title()
+- The list contains categorical columns that use Yes/No-style values.
+- The loop standardizes their capitalization.
+- For example, "yes" becomes "Yes" and "no" becomes "No".
+
+print("Unique values after standardization:")
+for col in df.select_dtypes(include="object").columns:
+    if col != "customerID":
+        print(col, ":", sorted(df[col].dropna().unique().tolist()))
+
+Explanation:
+- Loops through text columns.
+- col != "customerID" excludes the customer ID from this display.
+- dropna() removes missing values.
+- unique() returns distinct values only.
+- tolist() converts them into a Python list.
+- sorted() arranges the values in ascending/alphabetical order.
+- Prints the distinct values so we can check whether categories are consistent.
+
+Why standardize?
+Values such as "Yes", "yes" and " YES " could otherwise be treated as different categories. Standardization makes category labels consistent.
+
+7. CONVERT COLUMNS TO CORRECT DATA TYPES
+
+df["SeniorCitizen"] = df["SeniorCitizen"].astype("int64")
+- Converts SeniorCitizen to a 64-bit integer.
+- This column is represented numerically, usually as 0 or 1.
+
+df["tenure"] = df["tenure"].astype("int64")
+- Converts tenure (number of months with the company) into a 64-bit integer.
+
+df["MonthlyCharges"] = df["MonthlyCharges"].astype("float64")
+- Converts monthly charges into a 64-bit floating-point number.
+- Float supports decimal values.
+
+df["TotalCharges"] = df["TotalCharges"].astype("float64")
+- Converts total charges into a 64-bit floating-point number.
+
+print(df.dtypes)
+- dtypes displays the data type of every column.
+- It verifies that the selected columns have the intended types.
+
+Why correct data types?
+Numeric calculations and machine-learning preprocessing require values to be stored in suitable numeric formats rather than as text.
+
+8. IDENTIFY AND HANDLE OUTLIERS
+
+numeric_cols = ["tenure", "MonthlyCharges", "TotalCharges"]
+- Creates a list of the three numeric columns to inspect for outliers.
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+- subplots(1, 3) creates one row with three graph areas.
+- fig stores the overall figure.
+- axes stores the three individual axes.
+- figsize sets the figure to 15 inches wide and 4 inches high.
+
+for ax, col in zip(axes, numeric_cols):
+- zip() pairs each graph axis with one numeric column.
+- The loop repeats for tenure, MonthlyCharges and TotalCharges.
+- ax is the current graph area; col is the current column name.
+
+    sns.boxplot(y=df[col], ax=ax)
+    - sns.boxplot() creates a box plot.
+    - y=df[col] plots the selected numeric column vertically.
+    - ax=ax places the box plot in the current graph area.
+
+    ax.set_title(col)
+    - Sets the title of the current box plot to the column name.
+
+plt.tight_layout()
+- Adjusts spacing to reduce overlap between plots and labels.
+
+plt.show()
+- Displays the three box plots.
+
+IQR CHECK
+
+for col in numeric_cols:
+- Repeats the IQR calculation for each selected numeric column.
+
+    q1 = df[col].quantile(0.25)
+    - quantile(0.25) calculates the first quartile, or 25th percentile.
+
+    q3 = df[col].quantile(0.75)
+    - quantile(0.75) calculates the third quartile, or 75th percentile.
+
+    iqr = q3 - q1
+    - IQR stands for Interquartile Range.
+    - It measures the spread of the middle 50% of values.
+
+    lower = q1 - 1.5 * iqr
+    - Calculates the lower boundary of the IQR outlier rule.
+
+    upper = q3 + 1.5 * iqr
+    - Calculates the upper boundary.
+
+    count = int(((df[col] < lower) | (df[col] > upper)).sum())
+    - Checks which values are below lower OR above upper.
+    - < means less than; > means greater than.
+    - | means OR for combining Pandas Boolean conditions.
+    - sum() counts how many values satisfy either condition.
+    - int() converts the count to an integer.
+
+    print(f"{col}: {count} IQR-flagged values (bounds: {lower:.2f} to {upper:.2f})")
+    - Prints the column name, number of flagged values and calculated limits.
+    - This line uses an f-string to insert variable values into the text.
+    - {lower:.2f} and {upper:.2f} display the limits to two decimal places.
+
+DOMAIN VALIDATION
+
+invalid = (df["tenure"].lt(0) | df["tenure"].gt(72) |
+           df["MonthlyCharges"].lt(0) | df["TotalCharges"].lt(0))
+
+Explanation:
+- Creates a Boolean condition for impossible values.
+- lt(0) means less than zero.
+- gt(72) means greater than 72.
+- tenure is expected to be between 0 and 72 months.
+- MonthlyCharges and TotalCharges should not be negative.
+- | combines the conditions using OR.
+- invalid is True for any row that violates at least one rule.
+
+print("Impossible domain values:", int(invalid.sum()))
+- Counts the rows marked True in invalid.
+
+df = df.loc[~invalid].copy()
+- ~ means NOT; it reverses the Boolean condition.
+- ~invalid selects rows that are not invalid.
+- .loc filters those valid rows.
+- copy() creates a separate DataFrame.
+- Only impossible records are removed.
+
+print("Rows after domain validation:", len(df))
+- Displays the remaining number of rows.
+
+Important concept:
+- An IQR-flagged value is not automatically an error.
+- A customer may legitimately have high charges or long tenure.
+- The notebook reports IQR flags but keeps plausible values.
+- It removes only impossible domain values, such as negative charges or tenure outside 0–72 months.
+
+9. FEATURE ENGINEERING
+
+Feature engineering means creating useful new columns from existing data to help analysis or machine learning.
+
+9A. CREATE TENURE GROUPS
+
+df["TenureGroup"] = pd.cut(
+    df["tenure"],
+    bins=[-1, 12, 24, 48, 72],
+    labels=["New (0-12 months)", "1-2 years", "2-4 years", "4-6 years"]
+)
+
+Explanation:
+- pd.cut() divides a numeric column into intervals (bins).
+- df["tenure"] is the value being divided into groups.
+- bins defines the interval boundaries.
+- labels provides a readable name for each interval.
+- The result is stored in a new column named TenureGroup.
+- The groups are: 0–12 months, 1–2 years, 2–4 years and 4–6 years.
+- The first boundary is -1 so a tenure value of 0 is included in the first group.
+
+9B. SELECT SERVICE COLUMNS
+
+service_cols = ["PhoneService", "MultipleLines", "OnlineSecurity", "OnlineBackup",
+                "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies"]
+- Creates a list of eight service-related columns.
+- These columns indicate whether a customer has subscribed to each service.
+
+9C. COUNT SERVICES
+
+df["TotalServicesCount"] = df[service_cols].eq("Yes").sum(axis=1)
+- df[service_cols] selects all eight service columns.
+- eq("Yes") checks each cell to see whether it equals "Yes".
+- The result is a True/False table.
+- sum(axis=1) adds across each row.
+- In Python/Pandas, True is treated as 1 and False as 0 during this sum.
+- axis=1 means calculate across columns for each customer.
+- The result is the number of selected services for each customer.
+- Stores the count in TotalServicesCount.
+
+9D. CALCULATE AVERAGE MONTHLY SPEND
+
+df["AvgMonthlySpend"] = np.where(
+    df["tenure"] > 0, df["TotalCharges"] / df["tenure"], 0
+)
+
+Explanation:
+- np.where(condition, value_if_true, value_if_false) chooses a value based on a condition.
+- df["tenure"] > 0 checks whether tenure is greater than zero.
+- If True, it calculates TotalCharges divided by tenure.
+- If False, it assigns 0 to avoid division by zero.
+- The result is stored in AvgMonthlySpend.
+- This is the customer's average historical total charge per month of tenure.
+
+9E. CONVERT CHURN INTO A BINARY TARGET
+
+df["Churn_Binary"] = df["Churn"].map({"No": 0, "Yes": 1}).astype(int)
+- map() replaces category labels according to a dictionary.
+- "No" becomes 0.
+- "Yes" becomes 1.
+- astype(int) converts the mapped values into integers.
+- The new column Churn_Binary is suitable as a numerical target for a classification model.
+
+display(df[["tenure", "TenureGroup", "TotalServicesCount", "AvgMonthlySpend", "Churn", "Churn_Binary"]].head())
+- Selects six relevant columns using a list of column names.
+- head() displays the first five rows.
+- Shows the original and newly engineered features together.
+
+10. ENCODE AND SCALE FEATURES; SPLIT INTO TRAINING AND TESTING SETS
+
+10A. SEPARATE INPUT FEATURES AND TARGET
+
+X = df.drop(columns=["customerID", "Churn", "Churn_Binary"])
+- X represents the input features used by a future machine-learning model.
+- drop() removes the listed columns.
+- customerID is an identifier, not a useful predictive feature.
+- Churn is the original text target.
+- Churn_Binary is the numerical target and must not be included in the inputs.
+- The remaining columns form X.
+
+y = df["Churn_Binary"]
+- y is the target variable that the model will try to predict.
+- It contains 0 for No churn and 1 for Yes churn.
+
+10B. ONE-HOT ENCODE CATEGORICAL FEATURES
+
+X = pd.get_dummies(X, drop_first=True, dtype=int)
+- get_dummies() converts categorical columns into numerical indicator columns.
+- Each category is represented using 0/1 columns.
+- drop_first=True removes the first category from each encoded feature.
+- This avoids redundant dummy columns in many modelling situations.
+- dtype=int makes the generated values integers.
+- The encoded feature table replaces X.
+
+10C. SPLIT INTO TRAINING AND TESTING DATA
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.20, random_state=42, stratify=y
+)
+
+Explanation:
+- train_test_split() divides input features X and target y into training and testing parts.
+- X_train: input features for training.
+- X_test: input features for testing.
+- y_train: target labels for training.
+- y_test: target labels for testing.
+- test_size=0.20 reserves 20% of records for testing; the remaining 80% is for training.
+- random_state=42 makes the random split reproducible.
+- stratify=y keeps approximately the same Yes/No churn proportion in both sets.
+- The split is used to evaluate a future model on records it did not train on.
+
+10D. SELECT NUMERIC COLUMNS TO SCALE
+
+scale_cols = ["tenure", "MonthlyCharges", "TotalCharges", "TotalServicesCount", "AvgMonthlySpend"]
+- Creates a list of numerical columns that will be standardized.
+- These are the continuous/count features selected by the notebook for scaling.
+
+10E. CREATE THE SCALER
+
+scaler = StandardScaler()
+- Creates a StandardScaler object.
+- StandardScaler transforms values using:
+  (value - mean) / standard deviation
+- After scaling, each feature in the training data has approximately mean 0 and standard deviation 1.
+
+X_train = X_train.copy()
+X_test = X_test.copy()
+- Makes separate copies before updating selected columns.
+- This avoids modifying an object through a shared reference and helps keep the operations clear.
+
+10F. FIT ON TRAINING DATA AND TRANSFORM BOTH SETS
+
+X_train[scale_cols] = scaler.fit_transform(X_train[scale_cols])
+- Selects the scaling columns from training data.
+- fit_transform() first learns the mean and standard deviation from the training data, then scales those values.
+- The scaled values replace the original values in those columns.
+
+X_test[scale_cols] = scaler.transform(X_test[scale_cols])
+- Uses transform() to scale the testing data.
+- It uses the mean and standard deviation learned from X_train.
+- It does NOT fit a new scaler on the test data.
+- This avoids data leakage from the testing set into preprocessing.
+
+Why fit only on training data?
+The test set must behave like unseen future data. If its statistics are used during fitting, information from the test set leaks into the training process and evaluation becomes less reliable.
+
+10G. CHECK THE SPLIT AND SCALING
+
+print("X_train:", X_train.shape, " y_train:", y_train.shape)
+print("X_test :", X_test.shape, " y_test :", y_test)
+- Displays the dimensions of training and testing features and labels.
+- X and y row counts should match within each split.
+
+print("Training churn rate:", round(y_train.mean(), 3))
+print("Testing churn rate :", round(y_test.mean(), 3))
+- Since churn is coded 0/1, the mean is the proportion of customers with churn value 1.
+- round(..., 3) rounds the proportion to three decimal places.
+- Prints the churn rate in each split.
+- stratify=y helps keep the rates similar.
+
+print("Training scaled means (approximately 0):")
+print(X_train[scale_cols].mean().round(2))
+- Calculates the mean of each scaled training feature.
+- round(2) rounds results to two decimal places.
+- The means should be approximately zero after StandardScaler.
+
+11. EXPORT CLEANED DATA AND MODEL-READY SPLITS
+
+df.to_csv("Cleaned_Telecom_Customer_Churn.csv", index=False)
+- Saves the cleaned DataFrame as a CSV file.
+- It keeps customerID and the original Churn label because this is the human-readable cleaned dataset.
+- index=False prevents the Pandas row index from being added as an extra column.
+
+X_train.to_csv("X_train.csv", index=False)
+- Saves training input features.
+
+X_test.to_csv("X_test.csv", index=False)
+- Saves testing input features.
+
+y_train.to_frame("Churn_Binary").to_csv("y_train.csv", index=False)
+- y_train is a Pandas Series.
+- to_frame("Churn_Binary") converts it into a one-column DataFrame with that column name.
+- to_csv() saves it as y_train.csv.
+
+y_test.to_frame("Churn_Binary").to_csv("y_test.csv", index=False)
+- Converts the testing target Series into a one-column DataFrame and saves it.
+
+print("Exported: Cleaned_Telecom_Customer_Churn.csv, X_train.csv, X_test.csv, y_train.csv, y_test.csv")
+- Displays the names of the five output files.
+
+What are the five output files?
+1. Cleaned_Telecom_Customer_Churn.csv: cleaned dataset with original customer ID and churn label, plus engineered features.
+2. X_train.csv: training input features.
+3. X_test.csv: testing input features.
+4. y_train.csv: training churn labels.
+5. y_test.csv: testing churn labels.
+
+12. FINAL VERIFICATION AND CONCLUSION
+
+print("Final cleaned dataset shape:", df.shape)
+- Displays the final number of rows and columns.
+
+print("Missing values:", int(df.isna().sum().sum()))
+- Counts all missing values in the final DataFrame.
+
+print("Duplicate rows:", int(df.duplicated().sum()))
+- Counts any remaining exact duplicate rows.
+
+print("Duplicate customer IDs:", int(df["customerID"].duplicated().sum()))
+- Checks whether any customer ID is still repeated.
+
+print("Churn distribution:")
+print(df["Churn"].value_counts())
+- value_counts() counts how many records belong to each churn category, such as Yes and No.
+
+display(df.head())
+- Displays the first five rows of the final cleaned DataFrame.
+
+The conclusion statements explain that:
+- The telecom dataset was explored, cleaned and standardized.
+- Data types were corrected.
+- Valid extreme values were retained after domain checks.
+- New customer features were created.
+- Categorical features were encoded.
+- Numerical features were scaled using training data only.
+- The dataset was split into training and testing sets for future churn modelling.
+
+------------------------------------------------------------
+BASIC VIVA QUESTIONS AND ANSWERS
+------------------------------------------------------------
+
+1. What is data cleaning?
+Finding and correcting missing, duplicate, inconsistent or invalid data so it can be used reliably.
+
+2. What is data preparation?
+The process of cleaning and transforming raw data into a form suitable for analysis or machine learning.
+
+3. What is customer churn?
+When a customer stops using or leaves a company's service.
+
+4. What is the target variable in this practical?
+Churn, converted into Churn_Binary where No = 0 and Yes = 1.
+
+5. What is a DataFrame?
+A two-dimensional Pandas structure containing rows and columns.
+
+6. What is Pandas used for?
+Loading, cleaning, transforming and analysing tabular data.
+
+7. What is NumPy used for?
+Numerical operations and array calculations.
+
+8. What is Matplotlib?
+A Python library used to create graphs.
+
+9. What is Seaborn?
+A statistical visualization library built on Matplotlib.
+
+10. What is Scikit-learn?
+A Python machine-learning library that provides preprocessing, model selection and machine-learning algorithms.
+
+11. What does read_csv() do?
+It loads a CSV file into a Pandas DataFrame.
+
+12. What does df.shape return?
+A tuple containing the number of rows and columns.
+
+13. What does info() show?
+Column names, data types, non-null counts and memory usage.
+
+14. What does describe() show?
+Summary statistics such as count, mean, standard deviation, minimum, quartiles and maximum.
+
+15. What is the difference between isna() and isnull()?
+In Pandas they are equivalent ways to identify missing values.
+
+16. What is the difference between duplicated() and drop_duplicates()?
+duplicated() identifies repeated rows; drop_duplicates() removes them.
+
+17. Why was TotalCharges converted using to_numeric()?
+It was stored as text even though it represents a numeric amount.
+
+18. What does errors="coerce" mean?
+Values that cannot be converted to numbers are changed into NaN.
+
+19. Why fill TotalCharges with zero for zero-tenure customers?
+A customer with zero months of service has not accumulated monthly charges, so zero is meaningful.
+
+20. What is median?
+The middle value after arranging values in order.
+
+21. Why use median for numeric missing values?
+It is less affected by extreme values than the mean.
+
+22. What is mode?
+The most frequently occurring value.
+
+23. Why use mode for categorical missing values?
+It fills the missing category with the most common category in that column.
+
+24. What is data standardization?
+Making inconsistent text formats or category labels consistent.
+
+25. What does strip() do?
+Removes extra spaces from the beginning and end of text.
+
+26. What does title() do?
+Capitalizes the first letter of each word and lowercases the remaining letters.
+
+27. What is a duplicate record?
+A record that repeats an existing record or identifier.
+
+28. Why is customerID treated specially?
+It is a unique identifier and should represent one customer record.
+
+29. What is an outlier?
+A value that is unusually far from the general distribution of the data.
+
+30. What is IQR?
+Interquartile Range, calculated as Q3 minus Q1.
+
+31. What are Q1 and Q3?
+Q1 is the 25th percentile and Q3 is the 75th percentile.
+
+32. What is the IQR outlier rule?
+Values below Q1 - 1.5 × IQR or above Q3 + 1.5 × IQR are flagged as potential outliers.
+
+33. Does every IQR outlier need to be removed?
+No. It may be a valid observation. Domain knowledge is needed before removing it.
+
+34. What is domain validation?
+Checking whether values are possible according to the real-world meaning of the data.
+
+35. What is feature engineering?
+Creating useful new variables from existing data.
+
+36. What is pd.cut() used for?
+Dividing a numeric column into intervals or groups.
+
+37. What is TotalServicesCount?
+The number of selected services for which a customer has the value Yes.
+
+38. What does axis=1 mean in sum(axis=1)?
+It performs the sum across columns for each row.
+
+39. What is AvgMonthlySpend?
+TotalCharges divided by tenure for customers with tenure greater than zero; otherwise it is set to zero.
+
+40. Why convert Churn to binary?
+Many machine-learning algorithms need the target labels in a numerical form.
+
+41. What is encoding?
+Converting categorical data into a numerical representation.
+
+42. What is one-hot encoding?
+Creating separate indicator columns for categories, with values such as 0 and 1.
+
+43. What does drop_first=True do?
+It drops the first generated category column for each categorical feature.
+
+44. What is X?
+The input feature data used by a machine-learning model.
+
+45. What is y?
+The target/output variable that the model tries to predict.
+
+46. What is training data?
+The data used to teach or fit a machine-learning model.
+
+47. What is testing data?
+The separate data used to evaluate the model on records it did not train on.
+
+48. What does test_size=0.20 mean?
+20% of the data is reserved for testing and 80% for training.
+
+49. What does random_state=42 do?
+It makes the random split reproducible.
+
+50. What does stratify=y do?
+It maintains approximately the same target-class proportions in training and testing sets.
+
+51. What is feature scaling?
+Changing the scale of numerical features so that their ranges are more comparable.
+
+52. What is StandardScaler?
+A Scikit-learn transformer that standardizes values using the training mean and standard deviation.
+
+53. What is the StandardScaler formula?
+(value - mean) / standard deviation.
+
+54. What does fit() do?
+It learns the required statistics, such as mean and standard deviation.
+
+55. What does transform() do?
+It applies the learned scaling transformation to data.
+
+56. What does fit_transform() do?
+It first learns the statistics and then transforms the same data.
+
+57. What is data leakage?
+When information from testing or future data improperly influences training or preprocessing.
+
+58. Why fit the scaler only on training data?
+To prevent information from the test set influencing the preprocessing and making evaluation unreliable.
+
+59. Why is customerID removed from X?
+It is an identifier, not a meaningful customer behaviour feature for this model.
+
+60. Why remove Churn and Churn_Binary from X?
+They are the target labels. Including them as input would reveal the answer to the model.
+
+61. What does value_counts() do?
+It counts the frequency of each distinct value in a column.
+
+62. Why save X_train, X_test, y_train and y_test separately?
+They are the prepared inputs and target labels needed for later model training and evaluation.
+
+63. Does this practical train a churn prediction model?
+No. It prepares the data for future churn modelling; it does not fit a classification model.
+
+------------------------------------------------------------
+CODE-SPECIFIC WHY / WHAT-IF VIVA QUESTIONS
+------------------------------------------------------------
+
+1. What if the CSV file is not in the notebook folder?
+Pandas may raise FileNotFoundError. Place it in the folder or update DATA_PATH.
+
+2. Why use Path() for the file path?
+It provides a convenient path object rather than hardcoding the path as a plain string throughout the code.
+
+3. What if TotalCharges is not converted to numeric?
+Calculations such as median, division and scaling may fail or behave incorrectly because the values are text.
+
+4. What happens to invalid numeric text when errors="coerce" is used?
+It becomes NaN, which can then be handled as a missing value.
+
+5. Why strip all object columns before converting TotalCharges?
+Extra spaces around text values are removed, including space-only TotalCharges entries.
+
+6. Why treat zero-tenure TotalCharges separately before median filling?
+For those customers, zero is the meaningful value rather than an estimated typical charge.
+
+7. What if a numeric column has no missing values?
+The if condition skips the median fill operation.
+
+8. What if a categorical column has no missing values?
+The if condition skips mode filling.
+
+9. What if mode() returns more than one value?
+mode()[0] selects the first returned mode.
+
+10. What if we use mean instead of median?
+The average may be more affected by extreme values.
+
+11. What is the difference between duplicate rows and duplicate IDs?
+Duplicate rows repeat all values; duplicate IDs repeat the customer identifier, even if other columns differ.
+
+12. Why drop exact duplicates before duplicate customer IDs?
+First remove fully repeated records; then ensure that each customer ID appears only once.
+
+13. What if we use keep="last" instead of keep="first"?
+The last record for each repeated customer ID would be retained instead of the first.
+
+14. Why standardize capitalization?
+So values such as "yes", "Yes" and " YES " are not treated as separate categories.
+
+15. What if title() is applied to customerID?
+It could change the formatting of identifiers, so the notebook excludes customerID from the unique-category display and does not title-case it.
+
+16. Why use astype("int64")?
+It converts a column into a 64-bit integer data type.
+
+17. What if a numeric column is left as text?
+Mathematical operations and machine-learning preprocessing may not work as intended.
+
+18. What does zip(axes, numeric_cols) do?
+It pairs each graph area with one numeric column so the loop can create one boxplot per feature.
+
+19. Why use a boxplot for outlier inspection?
+It gives a visual summary of the distribution and highlights potential extreme values.
+
+20. What if a value is outside the IQR limits but is still possible in real life?
+It should not automatically be removed. The notebook checks valid business/domain ranges.
+
+21. Why are high MonthlyCharges and TotalCharges retained?
+High charges may be legitimate customer values; only impossible negative charges are removed.
+
+22. What if tenure is 80 months?
+It is outside the specified 0–72 month range and is flagged as invalid by the domain check.
+
+23. What if MonthlyCharges is negative?
+It is considered impossible by the practical's domain rule and the row is removed.
+
+24. What does ~invalid mean?
+It reverses the Boolean condition, selecting records that are not invalid.
+
+25. What if we use df.loc[invalid] instead?
+That would select the invalid rows rather than retain the valid rows.
+
+26. Why use pd.cut() for TenureGroup?
+It converts a numeric tenure value into meaningful customer-duration categories.
+
+27. What if a tenure value is 0?
+It falls into the first group because the first bin starts at -1 and ends at 12.
+
+28. What if a tenure value is 72?
+It falls into the final group because the final bin ends at 72.
+
+29. What does eq("Yes") do?
+It checks which service cells contain exactly the text Yes.
+
+30. Why use sum(axis=1)?
+It counts the Yes values across the service columns for each customer.
+
+31. What if axis=0 is used instead?
+It would count Yes values down each column across customers, not calculate a service count for each customer.
+
+32. Why use np.where() for AvgMonthlySpend?
+It calculates the ratio only when tenure is greater than zero and avoids division by zero.
+
+33. What if tenure is zero and we divide directly?
+Division by zero would create an invalid/infinite result or warning. np.where() assigns zero for that condition.
+
+34. Why map No to 0 and Yes to 1?
+It creates a binary numerical target suitable for classification.
+
+35. What if Churn contains a category other than Yes or No?
+map() would produce a missing value for an unmapped category; the practical assumes the standardized target has only Yes and No.
+
+36. Why remove customerID from X?
+An identifier generally does not represent customer behaviour and could mislead a model.
+
+37. Why remove both Churn and Churn_Binary from X?
+To avoid target leakage: the answer must not be part of the model inputs.
+
+38. What if drop_first=False is used in get_dummies()?
+All category indicator columns are kept. This can create redundant columns for some models.
+
+39. Why split before scaling?
+The scaler must learn its statistics from training data only, not from the test set.
+
+40. What if random_state is removed?
+The split may be different each time the notebook is run.
+
+41. What if test_size=0.30 is used?
+30% of the data is reserved for testing and 70% for training.
+
+42. Why stratify=y?
+It helps preserve the proportion of churn and non-churn customers in both splits.
+
+43. What if stratify is not used?
+The class proportions in training and testing sets may differ more, especially with imbalanced classes.
+
+44. What is the difference between fit_transform() and transform()?
+fit_transform() learns statistics and transforms data; transform() uses already learned statistics to transform new data.
+
+45. Why is fit_transform() used on X_train?
+The scaler learns the mean and standard deviation from training features and scales them.
+
+46. Why only transform() on X_test?
+It applies the training-set statistics without learning anything from test data.
+
+47. What is data leakage in this practical?
+Using test-set information while fitting preprocessing steps, such as fitting StandardScaler on all rows before splitting.
+
+48. What should the mean of scaled training columns be?
+Approximately zero.
+
+49. Does StandardScaler make every value fall between 0 and 1?
+No. It standardizes around mean zero and standard deviation one; values can be below zero or above one.
+
+50. Why is y_train saved separately from X_train?
+X_train contains predictors; y_train contains the correct target labels for those training records.
+
+51. Why use to_frame() for y_train?
+A Pandas Series is one-dimensional; to_frame() converts it into a DataFrame with a named column before saving.
+
+52. Does this notebook predict which customers will churn?
+No. It prepares the dataset for a later model; model training and prediction are not included.
+
+------------------------------------------------------------
+30-SECOND EXPLANATION TO SPEAK IN THE VIVA
+------------------------------------------------------------
+
+“My practical is Data Cleaning and Preparation using a Telecom Customer Churn dataset. First, I imported the dataset using Pandas and explored its shape, columns, data types, missing values and duplicates. I cleaned text spaces and converted TotalCharges from text into numeric format. I handled missing values using zero for customers with zero tenure, median for remaining numeric values and mode for categorical values. Then I removed duplicate records, standardized category labels and corrected data types. I inspected outliers using boxplots and the IQR method, but retained valid high values and removed only impossible values using domain checks. After that, I created tenure groups, service counts, average monthly spend and a binary churn target. Finally, I one-hot encoded categorical features, split the data into training and testing sets, scaled numerical features using training data only, and exported the cleaned and model-ready files.”
+
+------------------------------------------------------------
+QUICK REVISION - REMEMBER THESE
+------------------------------------------------------------
+
+- Practical: Data Cleaning and Preparation - Telecom Customer Churn.
+- Dataset: Telecom_Customer_Churn.csv; 7,043 customer records.
+- Target: Churn (Yes/No); binary version Churn_Binary (No=0, Yes=1).
+- ID: customerID.
+- Key issue: TotalCharges is stored as text; convert with pd.to_numeric(errors="coerce").
+- Zero tenure + missing TotalCharges: fill with 0.
+- Other numeric missing values: median.
+- Categorical missing values: mode.
+- Duplicate handling: drop exact duplicates, then duplicate customer IDs (keep first).
+- Text standardization: strip() and title().
+- Numeric data types: int64 and float64.
+- Outlier check: boxplots and IQR (Q1 - 1.5*IQR, Q3 + 1.5*IQR).
+- Domain checks: tenure 0–72; charges must not be negative.
+- Valid extreme values are retained; only impossible records are removed.
+- Feature engineering: TenureGroup, TotalServicesCount, AvgMonthlySpend, Churn_Binary.
+- Encoding: pd.get_dummies(drop_first=True, dtype=int).
+- X = input features; y = target.
+- Split: 80% train, 20% test; random_state=42; stratify=y.
+- Scaling: StandardScaler.
+- Fit scaler on X_train only; transform X_test using the same scaler.
+- Exports: cleaned dataset, X_train, X_test, y_train, y_test.
+- No churn prediction model is trained in this practical; it prepares the data for future modelling.

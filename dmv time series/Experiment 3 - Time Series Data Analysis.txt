@@ -1,0 +1,672 @@
+EXPERIMENT 3: TIME SERIES DATA ANALYSIS
+Analysis and Visualization of Stock Market Data
+
+AIM
+To analyse historical stock prices, visualize trends and patterns, study relationships between variables, and forecast future closing prices using an ARIMA model.
+
+DATASET
+- File: Stock_Prices.csv
+- Company: Apple Inc. (AAPL)
+- 1,259 rows and 7 columns: date, open, high, low, close, volume, Name
+- Date range: 8 February 2013 to 7 February 2018
+- The selected file has no missing values.
+- The data is historical. Forecasting is only a learning exercise, not current investment guidance.
+
+------------------------------------------------------------
+1. IMPORT LIBRARIES AND LOAD THE DATA
+------------------------------------------------------------
+
+import pandas as pd
+- Imports Pandas, used to load, organize, clean and analyse tabular data.
+- pd is the short alias used to access Pandas functions.
+
+import numpy as np
+- Imports NumPy, used for numerical calculations.
+- np is its short alias.
+
+import matplotlib.pyplot as plt
+- Imports Matplotlib's plotting module.
+- plt is used to create graphs.
+
+df = pd.read_csv("Stock_Prices.csv")
+- read_csv() reads a comma-separated file.
+- The loaded table is stored in the variable df (DataFrame).
+- The CSV file must be in the same folder as the notebook, otherwise its path must be provided.
+
+df.head()
+- Displays the first five rows by default.
+- It helps us quickly inspect the loaded data.
+- df.head(10) would display the first ten rows.
+
+2. EXPLORE THE DATASET
+
+print("Shape of dataset:", df.shape)
+- shape returns a tuple: (number of rows, number of columns).
+- print() displays the result.
+- It does not change the DataFrame.
+
+print("\nColumn names:")
+- \n inserts a new line in the displayed text.
+
+print(df.columns.tolist())
+- columns gives the column labels.
+- tolist() converts those labels into a normal Python list.
+
+df.info()
+- Displays column names, non-null counts, data types and memory usage.
+- It is useful for checking the structure and spotting missing values.
+
+display(df.describe())
+- describe() calculates summary statistics for numeric columns.
+- It normally shows count, mean, standard deviation, minimum, quartiles and maximum.
+- display() presents the result neatly in a notebook.
+- count = number of non-missing values; mean = average; std = standard deviation.
+
+print(df.isnull().sum())
+- isnull() marks missing values as True and present values as False.
+- sum() counts the True values in each column.
+- The dataset description says there are no missing values in this selected file.
+
+3. CONVERT DATE AND PREPARE TIME-SERIES DATA
+
+df["date"] = pd.to_datetime(df["date"])
+- df["date"] selects the date column.
+- pd.to_datetime() converts date-like text into Pandas datetime values.
+- The converted values are assigned back to the same column.
+- Datetime format allows date-based operations such as extracting month or year.
+
+df = df.sort_values("date")
+- sort_values() arranges rows in ascending order of date by default.
+- Sorting is important because time-series analysis must follow chronological order.
+- The sorted DataFrame is assigned back to df.
+
+df = df.set_index("date")
+- set_index() makes the date column the row index.
+- The date is now used to identify each time-series observation.
+- The date column is no longer an ordinary data column.
+
+print("Date column data type:", df.index.dtype)
+- index accesses the DataFrame's index.
+- dtype displays the data type of the index.
+
+print("Date range:", df.index.min(), "to", df.index.max())
+- min() returns the earliest date.
+- max() returns the latest date.
+- This shows the period covered by the dataset.
+
+df.head()
+- Displays the first five rows after date preparation.
+
+4. VISUALIZE HISTORICAL STOCK PRICES
+
+plt.figure(figsize=(12, 5))
+- Starts a new figure (graph).
+- figsize sets its size in inches: width 12, height 5.
+
+plt.plot(df.index, df["close"], label="Closing Price")
+- plot() creates a line graph.
+- X-axis: dates from the index.
+- Y-axis: closing stock prices.
+- label gives this line a name for the legend.
+
+plt.title("Apple Stock Closing Price Over Time")
+- Adds the graph title.
+
+plt.xlabel("Date")
+- Names the horizontal axis.
+
+plt.ylabel("Closing Price (USD)")
+- Names the vertical axis; USD means US dollars.
+
+plt.legend()
+- Displays the legend using the label supplied in plot().
+
+plt.grid(True)
+- Displays grid lines to make values easier to read.
+- True means the grid is turned on.
+
+plt.show()
+- Displays the completed graph.
+
+Interpretation:
+- This graph shows how Apple's daily closing price changed over the selected historical period.
+- A line graph is suitable for showing change over time.
+
+5. CALCULATE AND PLOT MOVING AVERAGES
+
+df["MA_7"] = df["close"].rolling(window=7).mean()
+- Creates a new column called MA_7.
+- rolling(window=7) considers a moving window of seven observations.
+- mean() calculates the average closing price inside each window.
+- The first six values are NaN because there are not yet seven observations.
+- These are seven observations/trading days in this dataset, not necessarily seven calendar days.
+
+df["MA_30"] = df["close"].rolling(window=30).mean()
+- Creates a 30-observation moving average.
+- The first 29 values are NaN because a complete 30-observation window is not available.
+
+plt.figure(figsize=(12, 5))
+- Creates a new graph of width 12 and height 5.
+
+plt.plot(df.index, df["close"], label="Closing Price", alpha=0.5)
+- Plots the original closing prices.
+- alpha controls transparency; 0.5 makes the line partly transparent.
+
+plt.plot(df.index, df["MA_7"], label="7-day Moving Average")
+- Adds the 7-observation moving-average line.
+
+plt.plot(df.index, df["MA_30"], label="30-day Moving Average")
+- Adds the 30-observation moving-average line.
+
+The title, axis labels, legend, grid and show() work as explained in the previous graph.
+
+Why moving averages?
+- They smooth short-term fluctuations and make the general trend easier to see.
+- A 7-observation average reacts faster to recent changes.
+- A 30-observation average is smoother and reacts more slowly.
+- A moving average describes past data; it does not guarantee future movement.
+
+6. SEASONALITY ANALYSIS
+
+season = df.copy()
+- copy() creates a separate copy of df.
+- The calendar columns are added to season without adding them to the original df.
+
+season["Weekday"] = season.index.day_name()
+- day_name() extracts the weekday name from each date, such as Monday or Tuesday.
+
+season["Month"] = season.index.month
+- month extracts the month number, from 1 to 12.
+
+season["Month_Name"] = season.index.strftime("%b")
+- strftime() formats dates as text.
+- %b gives the abbreviated month name, such as Jan or Feb.
+
+season["Year"] = season.index.year
+- year extracts the year from each date.
+
+WEEKDAY AVERAGE
+
+weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+- Creates a list in the desired weekday order.
+- Stock market observations in this dataset are on business days.
+
+weekday_avg = season.groupby("Weekday")["close"].mean().reindex(weekday_order)
+- groupby("Weekday") groups rows with the same weekday.
+- ["close"] selects the closing-price column from each group.
+- mean() calculates the average closing price for each weekday.
+- reindex(weekday_order) arranges the results Monday to Friday.
+- It also makes the intended order explicit.
+
+plt.figure(figsize=(9, 4))
+- Creates a graph of width 9 and height 4.
+
+weekday_avg.plot(kind="bar")
+- Draws a bar chart of the weekday averages.
+- kind="bar" selects a vertical bar chart.
+
+plt.title("Average Closing Price by Day of the Week")
+plt.xlabel("Day")
+plt.ylabel("Average Closing Price (USD)")
+- Adds the graph title and axis labels.
+
+plt.xticks(rotation=30)
+- Rotates x-axis labels by 30 degrees for readability.
+
+plt.grid(axis="y")
+- Displays grid lines along the y-axis only.
+
+plt.show()
+- Displays the graph.
+
+MONTH AVERAGE
+
+month_avg = season.groupby("Month")["close"].mean()
+- Groups observations by month number and calculates the average close for each month.
+- The result is a Pandas Series indexed by month number.
+
+plt.figure(figsize=(9, 4))
+month_avg.plot(kind="bar")
+- Creates and plots a bar chart of monthly averages.
+
+plt.title("Average Closing Price by Month")
+plt.xlabel("Month")
+plt.ylabel("Average Closing Price (USD)")
+- Sets title and axis labels.
+
+plt.xticks(range(12), ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], rotation=0)
+- range(12) creates positions 0 to 11 for the twelve bars.
+- The list supplies the displayed month labels.
+- rotation=0 keeps labels horizontal.
+- The code labels the twelve bar positions Jan to Dec.
+
+plt.grid(axis="y")
+plt.show()
+- Adds horizontal grid lines and displays the graph.
+
+YEAR AVERAGE
+
+year_avg = season.groupby("Year")["close"].mean()
+- Groups observations by year and calculates the average closing price for each year.
+
+plt.figure(figsize=(9, 4))
+year_avg.plot(kind="bar")
+- Creates a bar chart of yearly averages.
+
+plt.title("Average Closing Price by Year")
+plt.xlabel("Year")
+plt.ylabel("Average Closing Price (USD)")
+plt.grid(axis="y")
+plt.show()
+- Adds labels, horizontal grid lines and displays the graph.
+
+Meaning of this section:
+- It compares average closing prices by weekday, month and year.
+- These comparisons help inspect possible periodic patterns.
+- They do not prove that a pattern exists or will repeat.
+- Stock data contains business days rather than every calendar day.
+
+7. CORRELATION BETWEEN CLOSING PRICE AND TRADING VOLUME
+
+correlation = df[["close", "volume"]].corr()
+- ["close", "volume"] selects two columns.
+- The double square brackets select multiple columns as a DataFrame.
+- corr() calculates the correlation between the selected numeric columns.
+- The result is a correlation matrix, with values from -1 to +1.
+
+print("Correlation matrix:")
+display(correlation)
+- Prints a heading and displays the correlation matrix.
+
+plt.figure(figsize=(8, 5))
+- Creates a graph of width 8 and height 5.
+
+plt.scatter(df["volume"], df["close"], alpha=0.4)
+- scatter() creates a scatter plot.
+- X-axis is trading volume; Y-axis is closing price.
+- Each dot represents one observation.
+- alpha=0.4 makes the dots partly transparent.
+
+plt.title("Closing Price vs Trading Volume")
+plt.xlabel("Trading Volume")
+plt.ylabel("Closing Price (USD)")
+plt.grid(True)
+plt.show()
+- Adds title, axis labels and grid, then displays the graph.
+
+Correlation interpretation:
+- +1 means a perfect positive linear relationship.
+- -1 means a perfect negative linear relationship.
+- 0 means no linear correlation.
+- Correlation does not prove that one variable causes the other.
+- A scatter plot helps visually inspect the relationship.
+
+8. FORECAST FUTURE CLOSING PRICES USING ARIMA
+
+from statsmodels.tsa.arima.model import ARIMA
+- Imports the ARIMA time-series model from statsmodels.
+- ARIMA stands for AutoRegressive Integrated Moving Average.
+
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+- Imports two measures used to compare actual and predicted values.
+- MAE = Mean Absolute Error.
+- MSE = Mean Squared Error.
+
+close_prices = df["close"].astype(float)
+- Selects the closing-price series.
+- astype(float) converts its values to floating-point numbers.
+- The result is stored in close_prices.
+
+split_point = int(len(close_prices) * 0.8)
+- len() returns the number of observations.
+- Multiplication by 0.8 calculates 80% of the observations.
+- int() converts the result to an integer index.
+- This index marks the split between training and testing data.
+
+train = close_prices.iloc[:split_point]
+- iloc selects rows by integer position.
+- [:split_point] selects observations from the beginning up to, but not including, split_point.
+- These first 80% observations are used for training.
+
+test = close_prices.iloc[split_point:]
+- Selects the remaining 20% observations for testing.
+- The split is chronological, so future observations are not used to train the model.
+
+model = ARIMA(train, order=(5, 1, 0))
+- Creates an ARIMA model using the training series.
+- order=(p, d, q) gives the three ARIMA parameters:
+  p = 5: autoregressive order; uses five lagged observations.
+  d = 1: differencing order; differences the series once to help make it stationary.
+  q = 0: moving-average order; uses zero lagged forecast errors.
+- These settings define the ARIMA(5, 1, 0) model used in this practical.
+
+model_fit = model.fit()
+- fit() estimates the model parameters from the training data.
+- The fitted model is stored in model_fit.
+
+test_forecast = model_fit.forecast(steps=len(test))
+- forecast() predicts future values after the training period.
+- steps=len(test) asks for exactly as many predictions as there are test observations.
+- The predictions are stored in test_forecast.
+
+test_forecast.index = test.index
+- Assigns the test dates as the forecast index.
+- This aligns predicted values with the dates of actual test values for comparison and plotting.
+
+mae = mean_absolute_error(test, test_forecast)
+- Compares actual test values with predicted values.
+- MAE is the average absolute difference between actual and predicted values.
+- Lower MAE generally indicates smaller prediction errors.
+
+rmse = np.sqrt(mean_squared_error(test, test_forecast))
+- mean_squared_error() calculates the average squared prediction error.
+- np.sqrt() takes its square root.
+- RMSE penalizes larger errors more strongly than MAE.
+- RMSE is expressed in the same unit as the closing price (USD).
+
+print("Mean Absolute Error (MAE):", round(mae, 3))
+print("Root Mean Squared Error (RMSE):", round(rmse, 3))
+- round(value, 3) rounds a number to three decimal places.
+- Prints the two evaluation scores.
+
+plt.figure(figsize=(12, 5))
+plt.plot(train.index, train, label="Training Data")
+plt.plot(test.index, test, label="Actual Test Prices")
+plt.plot(test_forecast.index, test_forecast, label="ARIMA Forecast")
+- Creates a graph and plots training values, actual test values and predicted test values.
+- The labels identify the three lines.
+
+plt.title("ARIMA Forecast vs Actual Closing Prices")
+plt.xlabel("Date")
+plt.ylabel("Closing Price (USD)")
+plt.legend()
+plt.grid(True)
+plt.show()
+- Adds title, labels, legend and grid, then displays the comparison.
+
+Why split chronologically?
+- Time-series data has a time order.
+- Training on later observations and testing on earlier observations would leak future information.
+- The first 80% is therefore used for training and the final 20% for testing.
+
+9. FORECAST THE NEXT 30 TRADING DAYS
+
+final_model = ARIMA(close_prices, order=(5, 1, 0))
+- Creates the same ARIMA(5, 1, 0) model, this time using the complete closing-price series.
+
+final_model_fit = final_model.fit()
+- Fits the model using all available historical closing prices.
+
+future_values = final_model_fit.forecast(steps=30)
+- Forecasts the next 30 observations beyond the end of the available series.
+- These are 30 model steps, not 30 calendar days.
+
+future_dates = pd.bdate_range(
+    start=close_prices.index[-1] + pd.offsets.BDay(1),
+    periods=30
+)
+- bdate_range() creates a range of business-day dates (normally Monday to Friday).
+- close_prices.index[-1] selects the last date in the historical index.
+- + pd.offsets.BDay(1) moves to the next business day.
+- periods=30 requests 30 business-day dates.
+- These dates are approximate trading dates; this code does not account for stock-market holidays.
+
+future_forecast = pd.Series(future_values.values, index=future_dates)
+- pd.Series() creates a one-dimensional labelled data structure.
+- future_values.values obtains the forecast numbers.
+- index=future_dates attaches the generated future dates to those numbers.
+- The result pairs each forecast with a date.
+
+display(future_forecast.to_frame(name="Forecast Closing Price"))
+- to_frame() converts the Series into a DataFrame.
+- name gives its column the heading Forecast Closing Price.
+- display() shows the forecast table.
+
+plt.figure(figsize=(12, 5))
+- Creates a new graph.
+
+plt.plot(close_prices.index, close_prices, label="Historical Closing Price")
+- Plots historical closing prices.
+
+plt.plot(future_forecast.index, future_forecast, label="30-day Forecast", color="red")
+- Plots the forecast for the next 30 business-day observations.
+- color="red" sets the forecast line colour.
+
+plt.title("Apple Stock Price: 30 Trading-Day ARIMA Forecast")
+plt.xlabel("Date")
+plt.ylabel("Closing Price (USD)")
+plt.legend()
+plt.grid(True)
+plt.show()
+- Adds graph labels, legend and grid, then displays the graph.
+
+Important limitation:
+- The forecast is based on historical closing prices and the selected ARIMA model.
+- It cannot reliably anticipate unexpected events, news or market changes.
+- The generated business dates do not remove exchange holidays.
+- It is a classroom demonstration, not investment advice.
+
+10. CONCLUSION - WHAT THE PRACTICAL DOES
+
+The practical loads Apple's historical stock data, explores its structure and statistics, converts dates into a time-series index, and visualizes closing prices. It calculates moving averages, compares average prices by weekday/month/year, and studies the relationship between closing price and trading volume. Finally, it trains and evaluates an ARIMA model and forecasts the next 30 business-day observations.
+
+------------------------------------------------------------
+BASIC VIVA QUESTIONS AND ANSWERS
+------------------------------------------------------------
+
+1. What is time-series data?
+Data collected or recorded in time order, usually at regular intervals. Example: daily stock closing prices.
+
+2. What is a time series in this practical?
+Apple's historical closing stock price arranged by date.
+
+3. What is a DataFrame?
+A two-dimensional Pandas data structure arranged in rows and columns.
+
+4. What is a Series?
+A one-dimensional Pandas data structure containing labelled values.
+
+5. What is the purpose of Pandas?
+It is used to load, organize, manipulate and analyse data.
+
+6. Why is NumPy used?
+It provides numerical operations. Here, np.sqrt() calculates the square root for RMSE.
+
+7. Why is Matplotlib used?
+To create visualizations such as line charts, bar charts and scatter plots.
+
+8. What is the difference between open, high, low and close?
+Open is the first traded price in the period; high is the highest price; low is the lowest price; close is the final traded price.
+
+9. What is volume?
+The number of shares traded during the period represented by a row.
+
+10. Why convert date to datetime?
+To perform date-based operations, sort chronologically and use dates as a time-series index.
+
+11. What is an index in Pandas?
+The labels used to identify rows. Here, the date is the index.
+
+12. Why sort the data by date?
+So observations are in chronological order before time-series analysis and forecasting.
+
+13. What does describe() do?
+It gives summary statistics such as count, mean, standard deviation, minimum, quartiles and maximum.
+
+14. What does isnull().sum() do?
+It counts missing values in each column.
+
+15. What is a moving average?
+The average of values within a moving window of a fixed number of observations.
+
+16. Why calculate MA_7 and MA_30?
+To smooth short-term fluctuations and compare short-term and longer-term trends.
+
+17. Why are the first values of moving averages missing?
+A full window is not available at the beginning of the series.
+
+18. What is seasonality?
+A pattern that repeats at a particular time interval. The practical inspects possible weekday, monthly and yearly patterns.
+
+19. What is groupby()?
+It divides data into groups based on one or more columns so calculations can be performed for each group.
+
+20. What is correlation?
+A numerical measure of the strength and direction of a linear relationship between variables.
+
+21. What is the range of correlation?
+-1 to +1.
+
+22. Does correlation mean causation?
+No. Correlation alone does not prove that one variable causes another.
+
+23. What is a scatter plot?
+A graph that represents paired values as points and helps inspect relationships between two numeric variables.
+
+24. What is ARIMA?
+A statistical time-series forecasting model. It stands for AutoRegressive Integrated Moving Average.
+
+25. What do p, d and q mean in ARIMA?
+p is the autoregressive order, d is the differencing order, and q is the moving-average order.
+
+26. What does ARIMA(5, 1, 0) mean here?
+The model uses five autoregressive lags, one order of differencing and zero moving-average error lags.
+
+27. What is stationarity?
+A time series is stationary when important statistical properties such as mean and variance remain broadly stable over time.
+
+28. Why is differencing used?
+Differencing subtracts the previous observation from the current one and can help make a series more stationary.
+
+29. What is training data?
+The part of the dataset used to fit or train the model.
+
+30. What is testing data?
+The separate part used to evaluate how well the trained model predicts unseen observations.
+
+31. Why use an 80:20 split?
+To train on 80% of the chronological observations and evaluate on the remaining 20%.
+
+32. Why not randomly shuffle time-series data?
+Shuffling can mix future and past observations and cause data leakage.
+
+33. What is forecasting?
+Estimating future values using patterns in historical data.
+
+34. What is MAE?
+Mean Absolute Error: the average absolute difference between actual and predicted values. Lower is generally better.
+
+35. What is MSE?
+Mean Squared Error: the average of squared prediction errors.
+
+36. What is RMSE?
+Root Mean Squared Error: the square root of MSE. It is in the same unit as the predicted variable and penalizes large errors more.
+
+37. Difference between MAE and RMSE?
+Both measure prediction error. RMSE gives relatively more weight to large errors because errors are squared before averaging.
+
+38. Why fit the final model again on the complete series?
+After evaluation, the practical uses all available historical observations to produce the future 30-step forecast.
+
+39. What is bdate_range()?
+A Pandas function that generates business-day dates, normally excluding Saturdays and Sundays.
+
+40. Does bdate_range() know all stock-market holidays?
+No. The code creates approximate Monday-to-Friday business dates and does not use an exchange holiday calendar.
+
+------------------------------------------------------------
+CODE-SPECIFIC WHY / WHAT-IF VIVA QUESTIONS
+------------------------------------------------------------
+
+1. What if the CSV file is not in the notebook folder?
+read_csv() may raise a FileNotFoundError. Give the correct file path or place the CSV beside the notebook.
+
+2. What if we do not convert the date column?
+Date operations may not work correctly because the values may remain strings rather than datetime values.
+
+3. What if we do not sort by date?
+The rows may be in the wrong time order, affecting moving averages and forecasting.
+
+4. What if we do not set date as the index?
+The data can still be analysed, but date-based time-series plotting and indexing become less convenient.
+
+5. What if we use rolling(window=7)?
+Each average uses the current observation and the previous six observations.
+
+6. Why does MA_30 start later than MA_7?
+It needs 30 observations to calculate its first complete average, while MA_7 needs only seven.
+
+7. What if we use window=1?
+The moving average equals the original value because each window contains only one observation.
+
+8. What if alpha=1 in the plot?
+The line or points are fully opaque. A smaller alpha makes them more transparent.
+
+9. What if we omit reindex(weekday_order)?
+The weekday groups may appear in the order produced by the grouping operation rather than the Monday-to-Friday order specified in the practical.
+
+10. What if we use sum() instead of mean() in the seasonality section?
+We would calculate total closing-price values in each group, not the average closing price.
+
+11. What if correlation is close to zero?
+It suggests little linear relationship, but a non-linear relationship may still exist.
+
+12. What if correlation is negative?
+The variables tend to move in opposite directions in a linear sense.
+
+13. What if we train on all the data and test on the same data?
+The evaluation would not represent performance on unseen observations and could be overly optimistic.
+
+14. Why is the split chronological?
+It preserves the time order and avoids training on future observations.
+
+15. What if we change ARIMA order=(5, 1, 0)?
+We change the model structure. The forecasts and errors may change; suitable parameters should be selected and evaluated.
+
+16. What if d=0?
+The model does not difference the series. This may be suitable only if the series is already sufficiently stationary for the model.
+
+17. What if steps=30 is changed to steps=10?
+The model forecasts ten future observations instead of thirty.
+
+18. Why assign test_forecast.index = test.index?
+So predictions line up with the actual test dates when comparing and plotting them.
+
+19. Why use np.sqrt() for RMSE?
+Because RMSE is defined as the square root of mean squared error.
+
+20. What if the forecast line differs greatly from actual prices?
+The model may not capture the data's behaviour well. The error metrics help quantify the mismatch.
+
+21. Why create future_dates separately?
+The forecast values need date labels so they can be displayed and plotted against time.
+
+22. What is one limitation of the future date generation?
+It skips weekends but not official stock-exchange holidays.
+
+23. Is the forecast guaranteed to be correct?
+No. It is a model-based estimate and actual stock prices can change unexpectedly.
+
+------------------------------------------------------------
+30-SECOND EXPLANATION TO SPEAK IN THE VIVA
+------------------------------------------------------------
+
+“My practical is Time Series Data Analysis using Apple's historical stock-price dataset. First, I loaded the CSV file using Pandas and explored its rows, columns, data types and summary statistics. Then I converted the date column into datetime format, sorted the records and set date as the index. I plotted the closing prices and calculated 7-observation and 30-observation moving averages to understand trends. I also compared average closing prices by weekday, month and year, and checked the correlation between closing price and trading volume. Finally, I trained an ARIMA(5, 1, 0) model using the first 80% of the data, tested it on the remaining 20% using MAE and RMSE, and used the complete series to forecast the next 30 business-day observations.”
+
+------------------------------------------------------------
+QUICK REVISION - REMEMBER THESE
+------------------------------------------------------------
+
+- Dataset: Apple (AAPL) historical stock prices, 2013-02-08 to 2018-02-07.
+- Rows/columns: 1,259 rows and 7 original columns.
+- Closing price column: close.
+- Date preparation: to_datetime(), sort_values(), set_index().
+- Moving averages: rolling(window=7).mean() and rolling(window=30).mean().
+- Seasonality comparison: weekday, month and year averages.
+- Relationship: correlation matrix and scatter plot for close and volume.
+- ARIMA order: (5, 1, 0).
+- Split: first 80% training, final 20% testing, in time order.
+- Evaluation: MAE and RMSE; lower values generally indicate smaller errors.
+- Final forecast: next 30 model steps, assigned approximate business-day dates.
+- Caution: historical educational forecast only, not current investment advice.

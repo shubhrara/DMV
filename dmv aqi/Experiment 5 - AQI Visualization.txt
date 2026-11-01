@@ -1,0 +1,873 @@
+EXPERIMENT 5: DATA VISUALIZATION USING MATPLOTLIB
+Problem Statement: Analyzing Air Quality Index (AQI) Trends in Pune
+
+AIM
+To explore historical daily air-quality data for Pune and visualize AQI and pollutant trends, monthly comparisons, distributions, and relationships between AQI and pollutants.
+
+SOURCE AND DATASET NOTES
+- Dataset file: City_Air_Quality.csv (included in the ZIP folder).
+- The notebook uses US AQI and six pollutant measurements.
+- Pollutants: PM2.5, PM10, Carbon Monoxide, Nitrogen Dioxide, Sulphur Dioxide and Ozone.
+- The dataset does NOT contain a Dominant_Pollutant category. Therefore, the notebook does not create one. Its AQI box plot compares months instead.
+- Missing measurement values are filled using time-based interpolation in both directions. Filled values, especially at the beginning or end, are estimates, not newly observed readings.
+- Required libraries: pandas, numpy, matplotlib.
+
+------------------------------------------------------------
+1. INSTALLATION (OPTIONAL)
+------------------------------------------------------------
+
+# %pip install pandas numpy matplotlib
+
+- %pip is a Jupyter/IPython magic command used to install Python packages in the notebook environment.
+- The # at the beginning makes the line a comment, so it will not run.
+- Remove # and run this only if the libraries are not already installed.
+- pandas is used for data handling, numpy for numerical calculations, and matplotlib for graphs.
+
+2. IMPORT LIBRARIES AND SET GRAPH DEFAULTS
+
+import pandas as pd
+- Imports the Pandas library and gives it the short name pd.
+- Pandas is used to load, inspect, and manipulate tabular data.
+
+import numpy as np
+- Imports NumPy with the alias np.
+- NumPy provides numerical functions and arrays.
+
+import matplotlib.pyplot as plt
+- Imports Matplotlib's plotting module as plt.
+- Used to create graphs.
+
+import matplotlib.dates as mdates
+- Imports Matplotlib's date-handling module as mdates.
+- Used to format dates on the graph's x-axis.
+
+plt.style.use("ggplot")
+- Applies Matplotlib's built-in ggplot visual style.
+- This changes the general appearance of graphs.
+
+plt.rcParams["figure.figsize"] = (12, 5)
+- rcParams stores Matplotlib's default settings.
+- Sets default graph size to 12 inches wide and 5 inches high.
+
+plt.rcParams["font.size"] = 10
+- Sets the default text size in graphs to 10.
+
+3. TASK 1 & 2: LOAD AND EXPLORE THE DATASET
+
+df = pd.read_csv("City_Air_Quality.csv")
+- read_csv() reads the CSV file into a Pandas DataFrame.
+- df is the variable storing the dataset.
+- The CSV should be in the same folder as the notebook, or its full/relative path must be provided.
+
+print("Dataset shape:", df.shape)
+- shape returns (rows, columns).
+- print() displays the number of rows and columns.
+
+print("\nColumn names:")
+- \n inserts a line break in the output.
+
+print(df.columns.tolist())
+- columns returns the column names.
+- tolist() converts them into a normal Python list.
+
+print("\nDataset information:")
+df.info()
+- info() displays column names, data types, non-null counts and memory usage.
+- It helps inspect the dataset structure and identify possible missing values.
+
+print("\nFirst five rows:")
+display(df.head())
+- head() returns the first five rows by default.
+- display() presents the table neatly in Jupyter Notebook.
+
+print("\nDescriptive statistics:")
+display(df.describe().round(2))
+- describe() calculates summary statistics for numeric columns.
+- It includes count, mean, standard deviation, minimum, quartiles and maximum.
+- round(2) rounds displayed numeric values to two decimal places.
+
+print("\nMissing values:")
+print(df.isnull().sum())
+- isnull() marks missing values as True.
+- sum() counts missing values column-wise.
+- This helps decide whether data cleaning is required.
+
+4. TASK 3: PREPARE THE RELEVANT VARIABLES
+
+df["date"] = pd.to_datetime(df["date"])
+- Selects the date column and converts its values into Pandas datetime format.
+- Datetime format allows date-based calculations and time-based interpolation.
+- The converted values are stored back in the date column.
+
+df = df.sort_values("date").reset_index(drop=True)
+- sort_values("date") sorts rows in ascending date order.
+- reset_index(drop=True) creates a fresh 0, 1, 2... row index.
+- drop=True prevents the old index from being added as a separate column.
+- Chronological order is important for time-series analysis.
+
+aqi_col = "us_aqi"
+- Stores the column name "us_aqi" in a variable.
+- This makes it easier to refer to the AQI column in later code.
+
+pollutant_cols = [
+    "pm2_5", "pm10", "carbon_monoxide",
+    "nitrogen_dioxide", "sulphur_dioxide", "ozone"
+]
+- Creates a Python list containing the six pollutant column names.
+- A list lets the code select or process multiple columns together.
+
+measurement_cols = pollutant_cols + [aqi_col]
+- [aqi_col] creates a one-item list containing the AQI column name.
+- + joins the two lists.
+- measurement_cols now contains all six pollutant columns plus the AQI column.
+
+df = df.set_index("date")
+- Makes date the DataFrame index.
+- A time-based index is needed for interpolation with method="time".
+
+df[measurement_cols] = df[measurement_cols].interpolate(
+    method="time", limit_direction="both"
+)
+- Selects the AQI and pollutant measurement columns.
+- interpolate() estimates missing values using surrounding available values.
+- method="time" uses the time interval between observations when estimating values.
+- limit_direction="both" allows filling in both directions, including missing values at the start and end.
+- This is an estimate; it does not create actual sensor observations.
+
+df = df.reset_index()
+- Converts the date index back into an ordinary date column.
+- The date can now be accessed as df["date"].
+
+df["month"] = df["date"].dt.to_period("M").astype(str)
+- .dt accesses datetime properties of the date column.
+- to_period("M") converts each date to a monthly period, such as 2024-01.
+- astype(str) converts the monthly period into text.
+- Stores the result in a new column named month.
+
+df["month_name"] = df["date"].dt.strftime("%b %Y")
+- strftime() formats a date as text.
+- %b means abbreviated month name; %Y means four-digit year.
+- Example: Jan 2024.
+- Stores a readable month label for graph axes.
+
+print("Prepared variables:")
+print(["date", aqi_col] + pollutant_cols)
+- Prints the names of the variables selected for analysis.
+- The list combines date, AQI and pollutant columns.
+
+print("\nMissing values after interpolation:")
+print(df[measurement_cols].isnull().sum())
+- Checks how many missing values remain in the selected measurement columns after interpolation.
+
+assert df[measurement_cols].isnull().sum().sum() == 0, "Some measurement values are still missing."
+- assert checks whether a condition is True.
+- The first sum() counts missing values per column; the second sum() adds those counts.
+- == 0 checks that the total number of missing measurement values is zero.
+- If the condition is False, Python raises an AssertionError with the given message.
+- If it is True, execution continues.
+
+print("\nAll selected AQI and pollutant measurement columns are complete.")
+- Displays a confirmation after the assertion succeeds.
+
+5. TASK 4 & 9: LINE PLOT OF OVERALL AQI TREND
+
+df["aqi_7_day_average"] = df[aqi_col].rolling(window=7, min_periods=1).mean()
+- Creates a new column for the 7-observation moving average of AQI.
+- rolling(window=7) considers a moving window of seven rows.
+- min_periods=1 allows an average even when fewer than seven observations are available at the beginning.
+- mean() calculates the average within each window.
+- This smooths short-term changes and makes the general trend easier to see.
+
+plt.figure(figsize=(13, 5))
+- Creates a graph 13 inches wide and 5 inches high.
+
+plt.plot(df["date"], df[aqi_col], label="Daily US AQI", alpha=0.55)
+- Draws a line graph of daily AQI against date.
+- label gives the line a name for the legend.
+- alpha controls transparency; 0.55 makes the line partly transparent.
+
+plt.plot(df["date"], df["aqi_7_day_average"], label="7-day moving average", linewidth=2.5)
+- Adds the moving-average line to the same graph.
+- linewidth=2.5 makes this line thicker.
+
+plt.title("Daily AQI Trend in Pune")
+plt.xlabel("Date")
+plt.ylabel("US AQI")
+- Adds the title and labels for the x-axis and y-axis.
+
+plt.legend()
+- Displays the line labels.
+
+plt.grid(True, alpha=0.3)
+- Turns on grid lines.
+- alpha=0.3 makes the grid light/transparent.
+
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
+- gca() gets the current graph axes.
+- xaxis accesses the horizontal axis.
+- set_major_formatter() controls how the main date ticks are displayed.
+- DateFormatter("%b %Y") displays dates like Jan 2024.
+
+plt.xticks(rotation=30)
+- Rotates date labels by 30 degrees so they are easier to read.
+
+plt.tight_layout()
+- Adjusts spacing so labels and titles do not overlap or get cut off.
+
+plt.show()
+- Displays the graph.
+
+Interpretation:
+- The daily line shows individual AQI changes.
+- The 7-observation average smooths short-term fluctuations.
+- A moving average shows a trend; it does not prove the cause of AQI changes.
+
+6. TASK 5 & 9: INDIVIDUAL POLLUTANT TRENDS
+
+pollutant_labels = {
+    "pm2_5": "PM2.5",
+    "pm10": "PM10",
+    "carbon_monoxide": "Carbon Monoxide",
+    "nitrogen_dioxide": "Nitrogen Dioxide",
+    "sulphur_dioxide": "Sulphur Dioxide",
+    "ozone": "Ozone"
+}
+- Creates a dictionary.
+- A dictionary stores key-value pairs.
+- Each dataset column name is a key and its readable graph label is the value.
+- This avoids displaying technical column names on the plots.
+
+fig, axes = plt.subplots(3, 2, figsize=(14, 11), sharex=True)
+- subplots(3, 2) creates a grid of 3 rows and 2 columns: six graphs in total.
+- fig stores the complete figure.
+- axes stores the individual graph areas.
+- figsize sets the full figure size.
+- sharex=True makes all six graphs share the same x-axis scale/date range.
+
+axes = axes.flatten()
+- flatten() converts the 3-by-2 array of axes into a one-dimensional array.
+- This makes it easier to loop through the six graph areas one by one.
+
+for i, col in enumerate(pollutant_cols):
+- for repeats the indented code for each pollutant.
+- enumerate() gives both the position i and the column name col.
+- i is the graph position; col is the current pollutant column.
+
+    axes[i].plot(df["date"], df[col], linewidth=1.4, label=pollutant_labels[col])
+    - Selects the graph area at position i.
+    - Plots the current pollutant against date.
+    - linewidth controls line thickness.
+    - label uses the readable name from the dictionary.
+
+    axes[i].set_title(pollutant_labels[col] + " Trend")
+    - Sets the title of the current graph.
+    - + joins the pollutant label and the word Trend.
+
+    axes[i].set_xlabel("Date")
+    axes[i].set_ylabel("Measured level")
+    - Sets the x-axis and y-axis labels.
+
+    axes[i].legend()
+    axes[i].grid(True, alpha=0.3)
+    - Displays the label and grid for that graph.
+
+fig.suptitle("Pollutant Levels in Pune Over Time", fontsize=15)
+- Adds one main title for the entire group of six plots.
+- fontsize=15 sets the title font size.
+
+plt.tight_layout()
+plt.show()
+- Adjusts spacing and displays all six plots.
+
+Interpretation:
+- Each graph shows how one pollutant measurement changes over time.
+- Separate plots make it easier to inspect individual pollutant trends.
+
+7. TASK 6 & 9: MONTHLY BAR PLOT AND STACKED BAR PLOT
+
+monthly = df.groupby("month", sort=True).agg(
+    month_name=("month_name", "first"),
+    average_aqi=(aqi_col, "mean"),
+    average_pm25=("pm2_5", "mean"),
+    average_pm10=("pm10", "mean"),
+    average_no2=("nitrogen_dioxide", "mean")
+).reset_index()
+
+Explanation:
+- groupby("month", sort=True) groups records by month and sorts the month groups.
+- agg() performs multiple aggregation calculations for each group.
+- month_name=("month_name", "first") takes the first readable month label in each group.
+- average_aqi=(aqi_col, "mean") calculates the monthly average AQI.
+- average_pm25 calculates the monthly average PM2.5.
+- average_pm10 calculates the monthly average PM10.
+- average_no2 calculates the monthly average nitrogen dioxide.
+- reset_index() turns the grouped month index back into a normal column.
+- monthly stores the resulting summary table.
+
+7A. MONTHLY AVERAGE AQI BAR CHART
+
+plt.figure(figsize=(11, 5))
+- Creates a graph 11 inches wide and 5 inches high.
+
+plt.bar(monthly["month_name"], monthly["average_aqi"])
+- bar() creates a bar chart.
+- The x-axis contains month labels and the bar heights represent average AQI.
+
+plt.title("Monthly Average US AQI in Pune")
+plt.xlabel("Month")
+plt.ylabel("Average US AQI")
+- Adds title and axis labels.
+
+plt.xticks(rotation=35)
+- Rotates month labels by 35 degrees.
+
+plt.grid(axis="y", alpha=0.3)
+- Displays horizontal grid lines only.
+
+plt.tight_layout()
+plt.show()
+- Adjusts spacing and displays the chart.
+
+7B. STACKED BAR CHART OF MONTHLY POLLUTANT AVERAGES
+
+plt.figure(figsize=(11, 5))
+- Creates a new graph.
+
+plt.bar(monthly["month_name"], monthly["average_pm25"], label="PM2.5")
+- Draws the first bar segment for each month using average PM2.5.
+- label names the segment in the legend.
+
+plt.bar(monthly["month_name"], monthly["average_pm10"],
+        bottom=monthly["average_pm25"], label="PM10")
+- Draws the PM10 segment on top of the PM2.5 segment.
+- bottom specifies where each bar segment should start.
+- Here it starts at the PM2.5 height.
+
+plt.bar(monthly["month_name"], monthly["average_no2"],
+        bottom=monthly["average_pm25"] + monthly["average_pm10"],
+        label="Nitrogen Dioxide")
+- Draws nitrogen dioxide above the first two segments.
+- Its bottom is the sum of average PM2.5 and average PM10.
+- This creates a stacked bar chart.
+
+plt.title("Monthly Average Pollutant Levels (Stacked)")
+plt.xlabel("Month")
+plt.ylabel("Measured level")
+plt.xticks(rotation=35)
+plt.legend()
+plt.grid(axis="y", alpha=0.3)
+plt.tight_layout()
+plt.show()
+- Adds title, labels, rotated ticks, legend and horizontal grid lines, then displays the graph.
+
+Important interpretation:
+- The stacked chart visually places the three monthly average measurements on top of each other.
+- The pollutants have different units/scales, so the total stack should not be interpreted as a scientifically meaningful combined pollution value. Compare the individual segments carefully.
+
+8. TASK 7 & 9: BOXPLOT AND VIOLIN PLOT
+
+8A. BOXPLOT OF AQI VALUES FOR EACH MONTH
+
+month_groups = [
+    df.loc[df["month"] == month, aqi_col].dropna().values
+    for month in sorted(df["month"].unique())
+]
+- This is a list comprehension: a compact way to create a list using a loop.
+- df["month"].unique() gets the distinct month values.
+- sorted() arranges those month values in order.
+- For each month, df["month"] == month creates a True/False condition.
+- df.loc[condition, aqi_col] selects AQI values for that month.
+- dropna() removes missing AQI values.
+- values extracts the underlying array of values.
+- month_groups becomes a list where each item contains the AQI observations for one month.
+
+month_labels = [
+    pd.Period(month).strftime("%b %Y")
+    for month in sorted(df["month"].unique())
+]
+- Creates a readable label for each month.
+- pd.Period(month) converts the month text into a monthly period.
+- strftime("%b %Y") formats it like Jan 2024.
+- The labels correspond to the month groups.
+
+plt.figure(figsize=(13, 5))
+- Creates a graph.
+
+plt.boxplot(month_groups, tick_labels=month_labels)
+- boxplot() draws one box for each month's AQI values.
+- tick_labels supplies the month names shown along the x-axis.
+- A box plot summarizes median, quartiles, spread and potential outliers.
+
+plt.title("Distribution of AQI Values Across Months")
+plt.xlabel("Month")
+plt.ylabel("US AQI")
+plt.xticks(rotation=35)
+plt.grid(axis="y", alpha=0.3)
+plt.tight_layout()
+plt.show()
+- Adds labels, rotates month names, adds grid lines, adjusts spacing and displays the chart.
+
+How to read a box plot:
+- Middle line inside the box: median.
+- Bottom and top of box: first and third quartiles.
+- Box height: interquartile range (IQR).
+- Whiskers show the range under the plotting rule.
+- Points beyond whiskers, if shown, are potential outliers.
+
+Why monthly groups?
+- The supplied dataset does not contain a Dominant_Pollutant category.
+- The notebook therefore compares AQI distributions across months instead of inventing pollutant categories.
+
+8B. VIOLIN PLOT OF POLLUTANT MEASUREMENTS
+
+violin_data = [df[col].dropna().values for col in pollutant_cols]
+- Creates a list containing the non-missing values of each pollutant.
+- The list order follows pollutant_cols.
+
+plt.figure(figsize=(12, 5))
+- Creates a graph.
+
+plt.violinplot(violin_data, showmeans=True, showmedians=True)
+- violinplot() displays the distribution shape for each pollutant.
+- showmeans=True displays the mean.
+- showmedians=True displays the median.
+- The width of the violin indicates where values are more concentrated.
+
+plt.title("Distribution of Pollutant Measurements")
+plt.xlabel("Pollutant")
+plt.ylabel("Measured level")
+- Adds graph title and axis labels.
+
+plt.xticks(range(1, len(pollutant_cols) + 1),
+           [pollutant_labels[col] for col in pollutant_cols],
+           rotation=20)
+- range(1, len(pollutant_cols) + 1) creates positions 1 through 6.
+- len() counts the number of pollutant columns.
+- The list comprehension gets readable pollutant labels from the dictionary.
+- rotation=20 tilts the labels by 20 degrees.
+
+plt.grid(axis="y", alpha=0.3)
+plt.tight_layout()
+plt.show()
+- Adds horizontal grid lines, adjusts spacing and displays the violin plot.
+
+Note:
+- Pollutants can have different measurement units and scales.
+- Their violin shapes should not be treated as directly comparable magnitudes without considering those units.
+
+9. TASK 8 & 9: SCATTER PLOT AND BUBBLE CHART
+
+9A. SCATTER PLOT: PM2.5 AGAINST AQI
+
+plt.figure(figsize=(7, 5))
+- Creates a graph 7 inches wide and 5 inches high.
+
+scatter = plt.scatter(
+    df["pm2_5"], df[aqi_col],
+    c=df[aqi_col], cmap="plasma", alpha=0.75, label="Daily observations"
+)
+- scatter() creates a scatter plot where each dot is one daily observation.
+- X-axis is PM2.5; Y-axis is US AQI.
+- c=df[aqi_col] colours points according to their AQI values.
+- cmap="plasma" selects the plasma colour map.
+- alpha=0.75 controls point transparency.
+- label gives the plotted points a legend label.
+- The returned scatter object is stored in scatter for the colour bar.
+
+x_values = df["pm2_5"].to_numpy()
+y_values = df[aqi_col].to_numpy()
+- Selects PM2.5 and AQI columns.
+- to_numpy() converts their values into NumPy arrays.
+- These arrays are used for numerical calculations.
+
+slope, intercept = np.polyfit(x_values, y_values, 1)
+- polyfit() fits a polynomial to the data.
+- 1 means a first-degree polynomial: a straight line.
+- It returns two values: slope and intercept.
+- The fitted line has the form y = slope*x + intercept.
+
+trend_x = np.linspace(x_values.min(), x_values.max(), 100)
+- linspace() creates 100 evenly spaced x-values.
+- The values run from the minimum PM2.5 value to the maximum PM2.5 value.
+- These points are used to draw a smooth straight trendline.
+
+plt.plot(trend_x, slope * trend_x + intercept,
+         color="black", linewidth=2, label="Linear trendline")
+- Calculates the predicted y-coordinate of the straight line for every trend_x value.
+- Plots the line in black with width 2.
+- label identifies it in the legend.
+
+plt.colorbar(scatter, label="US AQI")
+- Adds a colour bar explaining how point colours correspond to AQI values.
+- scatter is the object returned by plt.scatter().
+
+plt.title("Relationship Between PM2.5 and US AQI")
+plt.xlabel("PM2.5")
+plt.ylabel("US AQI")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+- Adds title, axis labels, legend and grid, adjusts spacing and displays the graph.
+
+Interpretation:
+- The scatter plot helps inspect whether higher PM2.5 values tend to occur with higher AQI values.
+- The trendline shows the overall linear direction.
+- This visual relationship alone does not prove causation.
+
+9B. BUBBLE CHART: PM10 AGAINST AQI
+
+plt.figure(figsize=(8, 5))
+- Creates a graph.
+
+bubble_sizes = df["carbon_monoxide"].clip(lower=0) / df["carbon_monoxide"].max() * 250 + 10
+- clip(lower=0) replaces values below zero with zero.
+- Dividing by the maximum scales the values relative to the largest carbon monoxide measurement.
+- Multiplying by 250 controls the bubble-size scale.
+- Adding 10 ensures the bubbles have a minimum visible size.
+- The result is stored in bubble_sizes.
+- Bubble size represents carbon monoxide measurement.
+
+bubble = plt.scatter(
+    df["pm10"], df[aqi_col],
+    s=bubble_sizes,
+    c=df["pm2_5"], cmap="viridis",
+    alpha=0.65, edgecolors="black", linewidth=0.3
+)
+- X-axis: PM10.
+- Y-axis: US AQI.
+- s=bubble_sizes sets the size of each bubble using carbon monoxide.
+- c=df["pm2_5"] colours bubbles according to PM2.5.
+- cmap="viridis" selects the viridis colour map.
+- alpha=0.65 sets transparency.
+- edgecolors="black" gives bubbles black outlines.
+- linewidth=0.3 sets outline thickness.
+- The scatter object is stored in bubble for the colour bar.
+
+plt.colorbar(bubble, label="PM2.5 level")
+- Displays the colour scale for PM2.5 values.
+
+plt.title("PM10 vs US AQI (Bubble Size = Carbon Monoxide)")
+plt.xlabel("PM10")
+plt.ylabel("US AQI")
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+- Adds title, axis labels and grid, adjusts spacing and displays the chart.
+
+How to read the bubble chart:
+- Horizontal position represents PM10.
+- Vertical position represents US AQI.
+- Bubble size represents carbon monoxide.
+- Bubble colour represents PM2.5.
+- It shows four pieces of information in one graph.
+
+10. CONCLUSION
+
+The practical explores historical air-quality measurements for Pune. It prepares date and measurement variables, fills missing AQI and pollutant measurements through time-based interpolation, and creates visualizations. Line plots show changes over time; monthly bar charts compare averages; box and violin plots show distributions; scatter and bubble charts help inspect relationships between AQI and pollutants.
+
+------------------------------------------------------------
+BASIC VIVA QUESTIONS AND ANSWERS
+------------------------------------------------------------
+
+1. What is AQI?
+Air Quality Index is an index used to communicate how polluted the air is and what the associated health concern may be.
+
+2. What does US AQI mean in this dataset?
+It is the air-quality index field provided by the dataset, named us_aqi.
+
+3. What is air pollution?
+The presence of harmful substances or pollutants in the air.
+
+4. What is PM2.5?
+Particulate matter with a diameter of 2.5 micrometres or smaller.
+
+5. What is PM10?
+Particulate matter with a diameter of 10 micrometres or smaller.
+
+6. Name the six pollutants used in this practical.
+PM2.5, PM10, carbon monoxide, nitrogen dioxide, sulphur dioxide and ozone.
+
+7. What is a DataFrame?
+A two-dimensional Pandas structure containing data in rows and columns.
+
+8. Why do we use Pandas?
+To load, inspect, clean, transform and analyse tabular data.
+
+9. Why do we use NumPy?
+For numerical calculations and array operations.
+
+10. Why do we use Matplotlib?
+To create graphs and visualize data.
+
+11. What is data visualization?
+Representing data graphically so trends, patterns and relationships are easier to understand.
+
+12. What is df.shape?
+It returns the number of rows and columns in a DataFrame.
+
+13. What does df.info() show?
+Column names, data types, non-null counts and memory usage.
+
+14. What does describe() do?
+It calculates summary statistics such as mean, standard deviation, minimum, quartiles and maximum.
+
+15. What is a missing value?
+A value that is not available or recorded in the dataset.
+
+16. What is interpolation?
+A method of estimating missing values using known values around them.
+
+17. Why use method="time"?
+It uses the time interval between observations when estimating missing values.
+
+18. Why use limit_direction="both"?
+To allow interpolation to fill missing values in both directions, including at the start and end of the dataset.
+
+19. What is a datetime value?
+A date/time value stored in a format that supports date-based operations.
+
+20. Why sort data by date?
+To ensure observations are in chronological order before time-series analysis.
+
+21. What is a moving average?
+The average of values in a moving window of a fixed number of observations.
+
+22. Why calculate a 7-day moving average?
+To smooth short-term fluctuations and make the general AQI trend easier to see. In this notebook it is a seven-row/observation window.
+
+23. What is a line plot used for?
+To show how a value changes over time or across an ordered sequence.
+
+24. What is a bar chart used for?
+To compare values across categories, such as monthly average AQI.
+
+25. What is a stacked bar chart?
+A bar chart where multiple data series are placed on top of one another to show their component values.
+
+26. What is a box plot?
+A graph summarizing a distribution using the median, quartiles, whiskers and potential outliers.
+
+27. What is the median?
+The middle value after the data is arranged in order.
+
+28. What are quartiles?
+Values that divide ordered data into four parts.
+
+29. What is an outlier?
+A value that is unusually far from the majority of the observations.
+
+30. What is a violin plot?
+A graph that shows the distribution shape and density of data, often with mean or median markers.
+
+31. What is a scatter plot?
+A graph that displays paired numerical observations as points to help examine a relationship.
+
+32. What is a trendline?
+A line fitted to data to show its overall direction or relationship.
+
+33. What is a bubble chart?
+A scatter plot in which the size of each point represents an additional variable.
+
+34. What is a dictionary in Python?
+A data structure that stores key-value pairs.
+
+35. What is a list?
+An ordered collection of values in Python.
+
+36. What does groupby() do?
+It groups rows based on a column or columns so calculations can be performed for each group.
+
+37. What does agg() do?
+It applies one or more aggregation operations, such as mean or first, to grouped data.
+
+38. What is the purpose of plt.subplots()?
+It creates a figure containing multiple plotting areas (axes).
+
+39. What does alpha control?
+The transparency of plotted elements. Smaller values make them more transparent.
+
+40. What does cmap mean?
+It specifies the colour map used to map numeric values to colours.
+
+41. What does np.polyfit(x, y, 1) do?
+It fits a straight line to x and y values and returns the slope and intercept.
+
+42. What is the difference between a line plot and a scatter plot?
+A line plot connects observations to show an ordered trend; a scatter plot shows individual paired observations without connecting them.
+
+43. Why is a colour bar used?
+To explain what numeric values the colours represent.
+
+44. What is the purpose of tight_layout()?
+It adjusts graph spacing to reduce overlapping labels and titles.
+
+45. What does plt.show() do?
+It displays the graph.
+
+------------------------------------------------------------
+CODE-SPECIFIC WHY / WHAT-IF VIVA QUESTIONS
+------------------------------------------------------------
+
+1. What if the CSV file is not in the same folder as the notebook?
+read_csv() may give FileNotFoundError. Provide the correct file path or move the CSV into the notebook folder.
+
+2. What if we do not convert date to datetime?
+Date operations using .dt and time-based interpolation may fail or behave incorrectly.
+
+3. Why reset_index(drop=True) after sorting?
+To create a clean sequential row index and discard the old index.
+
+4. Why set date as the index before time interpolation?
+Time-based interpolation needs a datetime index to use the time distance between observations.
+
+5. Why reset the index after interpolation?
+To make date an ordinary column again for plotting and creating month fields.
+
+6. What if we use method="linear" instead of method="time"?
+It interpolates based on row positions rather than actual time intervals.
+
+7. What if missing values remain after interpolation?
+The assert statement fails and raises an AssertionError.
+
+8. Does interpolation recover the exact missing sensor reading?
+No. It estimates a value based on available observations.
+
+9. Why is limit_direction="both" important?
+It allows missing values at the beginning and end to be filled as well as gaps between known values.
+
+10. What if we do not sort by date before interpolation?
+The interpolation may use observations in an incorrect time order.
+
+11. Why use a list for pollutant_cols?
+It keeps the pollutant column names together and makes it easy to process them in loops.
+
+12. Why use a dictionary for pollutant_labels?
+It maps technical column names to readable labels for graph titles and axes.
+
+13. What does rolling(window=7) mean?
+It calculates values using a moving window containing seven observations.
+
+14. What if min_periods=1 is removed?
+The default requires a complete window of seven observations, so the first six moving-average values will be missing.
+
+15. Why use a moving average instead of only daily AQI?
+Daily values can fluctuate; the average makes the broad trend easier to see.
+
+16. What if linewidth is increased?
+The plotted line becomes thicker.
+
+17. What if alpha is set to 1?
+The plotted element becomes fully opaque.
+
+18. What if alpha is set to 0?
+The plotted element becomes fully transparent/invisible.
+
+19. Why use plt.subplots(3, 2)?
+There are six pollutants, so a 3-row by 2-column layout provides one graph per pollutant.
+
+20. Why flatten axes?
+It makes the two-dimensional array of axes easier to access with one loop index.
+
+21. What does enumerate() provide?
+Both the index/position and the current item while looping.
+
+22. What if we use sum() instead of mean() in monthly aggregation?
+We get monthly totals of the measurements rather than monthly averages.
+
+23. What does sort=True do in groupby?
+It sorts the group keys.
+
+24. Why use reset_index() after groupby and agg?
+It turns the grouped index into a normal column.
+
+25. Why use bottom in the stacked bar chart?
+It tells Matplotlib where each stacked segment should begin vertically.
+
+26. What if bottom is not provided for the second and third bars?
+Those bars would start from zero and overlap rather than stack on top of the previous segments.
+
+27. Why does the box plot compare months instead of dominant pollutants?
+The supplied dataset has no Dominant_Pollutant column, so the notebook uses real available categories rather than fabricating labels.
+
+28. What does dropna() do?
+It removes missing values from the selected data.
+
+29. What does values do after dropna()?
+It extracts the underlying values as an array.
+
+30. What is the difference between a box plot and a violin plot?
+A box plot summarizes quartiles and spread; a violin plot also shows the shape/density of the distribution.
+
+31. What does showmeans=True do in violinplot()?
+It displays the mean marker.
+
+32. What does showmedians=True do?
+It displays the median marker.
+
+33. What does np.linspace() do?
+It creates evenly spaced numeric values between a start and end value.
+
+34. Why use np.polyfit(..., 1)?
+The 1 specifies a first-degree polynomial, which is a straight line.
+
+35. What are slope and intercept?
+Slope indicates the line's rate and direction of change; intercept is the predicted y-value when x is zero.
+
+36. Does the trendline prove PM2.5 causes AQI to increase?
+No. It shows a fitted linear relationship, not proof of causation.
+
+37. What does c=df[aqi_col] do in scatter()?
+It colours each point according to its AQI value.
+
+38. What does s=bubble_sizes do?
+It sets the size of each bubble using the carbon monoxide measurement.
+
+39. What does clip(lower=0) do?
+It replaces values below zero with zero.
+
+40. What if carbon_monoxide.max() is zero?
+The bubble-size calculation would involve division by zero; the calculation assumes a positive maximum measurement.
+
+41. What information does the bubble chart show?
+PM10 through horizontal position, AQI through vertical position, carbon monoxide through bubble size, and PM2.5 through bubble colour.
+
+42. Why is a colour bar used in both scatter and bubble charts?
+It explains the numeric meaning of the point colours.
+
+43. What if the dataset had a Dominant_Pollutant column?
+The AQI box plot could be grouped by that actual category, if the values were valid and available.
+
+44. Are the stacked pollutant measurements a meaningful total pollution score?
+Not necessarily. The pollutants have different units/scales, so the stacked height should not be treated as a scientifically meaningful combined value.
+
+45. What is one limitation of the notebook's interpolation?
+Filled values are estimates and may not represent actual air-quality readings, especially at dataset boundaries.
+
+------------------------------------------------------------
+30-SECOND EXPLANATION TO SPEAK IN THE VIVA
+------------------------------------------------------------
+
+“My practical is about visualizing air-quality trends in Pune using Matplotlib. First, I loaded the City_Air_Quality CSV file using Pandas and explored its structure, statistics and missing values. I converted the date column into datetime format, sorted the data and filled missing AQI and pollutant measurements using time-based interpolation. Then I plotted the daily AQI trend with a 7-observation moving average and created separate line plots for six pollutants. I grouped the data month-wise to compare average AQI and pollutant levels using bar charts. I also used box plots and violin plots to study distributions, and scatter and bubble charts to examine relationships between AQI and pollutants.”
+
+------------------------------------------------------------
+QUICK REVISION - REMEMBER THESE
+------------------------------------------------------------
+
+- Practical: Data Visualization using Matplotlib; AQI trends in Pune.
+- Dataset: City_Air_Quality.csv.
+- AQI column: us_aqi.
+- Pollutants: pm2_5, pm10, carbon_monoxide, nitrogen_dioxide, sulphur_dioxide, ozone.
+- Libraries: pandas (pd), numpy (np), matplotlib.pyplot (plt), matplotlib.dates (mdates).
+- Missing values: interpolate(method="time", limit_direction="both").
+- Date preparation: to_datetime(), sort_values(), set_index(), reset_index().
+- Month fields: dt.to_period("M"), dt.strftime("%b %Y").
+- AQI trend: daily line + 7-observation moving average.
+- Pollutant trends: six separate line plots in a 3 x 2 grid.
+- Monthly comparison: groupby() + agg() + bar chart.
+- Stacked bar: bottom parameter places pollutant segments on top of one another.
+- Distribution: monthly AQI box plot and pollutant violin plot.
+- Relationship: PM2.5 vs AQI scatter plot with np.polyfit() trendline.
+- Bubble chart: x=PM10, y=US AQI, size=carbon monoxide, colour=PM2.5.
+- Important source note: no Dominant_Pollutant category exists in the supplied data.
+- Important caution: interpolated values are estimates, not actual new observations.

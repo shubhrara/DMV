@@ -1,0 +1,582 @@
+EXPERIMENT 3: DATA WRANGLING ON REAL ESTATE MARKET
+
+AIM
+To clean and prepare a real-estate dataset by standardizing column names, checking and handling missing values, filtering properties, encoding categorical variables, aggregating prices, identifying outliers and saving the wrangled datasets.
+
+DATASET AND SOURCE NOTES
+- Input file: train.csv
+- Dataset: 80,000 rows and 18 columns.
+- It contains property and location details, including city, locality type, property type, BHK, area, furnishing, distance details and price.
+- Price column used in this practical: price_inr_lakhs.
+- Property identifier used for counting: property_id.
+- The supplied dataset is described as having no missing values. The notebook nevertheless includes code to handle missing values if they occur.
+- There is no sale-date column, so this practical filters by city and property type rather than date.
+- No second verified neighbourhood/amenities dataset was supplied. Therefore, Task 3 explains a possible merge but does not perform an artificial merge.
+- Libraries used: Pandas and NumPy.
+
+------------------------------------------------------------
+1. IMPORT LIBRARIES AND LOAD THE DATASET
+------------------------------------------------------------
+
+import pandas as pd
+- Imports the Pandas library.
+- pd is its short alias.
+- Pandas is used to load, organize, clean and analyse tabular data.
+
+import numpy as np
+- Imports NumPy with the alias np.
+- NumPy is used for numerical operations. In this notebook, it is imported but no np function is used later.
+
+df = pd.read_csv("train.csv")
+- read_csv() reads the CSV file into a Pandas DataFrame.
+- df is the variable storing the dataset.
+- train.csv must be in the same folder as the notebook, or the correct file path must be supplied.
+
+print(df.head())
+- head() displays the first five rows by default.
+- print() displays the result.
+- This helps us preview the data.
+
+print("Dataset shape:", df.shape)
+- shape returns a tuple containing (rows, columns).
+- The supplied dataset has 80,000 rows and 18 columns.
+
+2. TASK 1: CLEAN COLUMN NAMES
+
+df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+- df.columns accesses all column names.
+- .str allows string operations to be applied to the column names.
+- strip() removes extra spaces from the beginning and end of each name.
+- lower() converts all letters to lowercase.
+- replace(" ", "_") replaces spaces inside names with underscores.
+- The cleaned names are assigned back to df.columns.
+- Example: "Property Type" becomes "property_type".
+- Standardized names are easier to type and use in code.
+
+print("Cleaned column names:")
+print(df.columns.tolist())
+- columns.tolist() converts the column labels into a normal Python list.
+- Prints the standardized column names.
+
+3. TASK 2: CHECK AND HANDLE MISSING VALUES
+
+print("Missing values in each column:")
+print(df.isnull().sum())
+- isnull() marks missing values as True and present values as False.
+- sum() counts the missing values in each column.
+- This shows which columns need cleaning.
+
+num_cols = df.select_dtypes(include="number").columns
+- select_dtypes() selects columns based on their data type.
+- include="number" selects numeric columns such as integers and decimals.
+- .columns gets the names of those columns.
+- num_cols stores the numeric column names.
+
+for col in num_cols:
+- A for loop repeats the indented statement for each numeric column.
+- col represents the current column name.
+
+    df[col] = df[col].fillna(df[col].median())
+    - df[col] selects the current numeric column.
+    - median() calculates the middle value of that column.
+    - fillna() replaces missing values with the calculated median.
+    - The cleaned column is assigned back to the DataFrame.
+    - Median is less affected by extreme values than the mean.
+
+cat_cols = df.select_dtypes(include="object").columns
+- Selects columns whose data type is object, commonly used for text/categorical values.
+- Stores their names in cat_cols.
+
+for col in cat_cols:
+- Loops through each categorical/text column.
+
+    if df[col].isnull().sum() > 0:
+    - Checks whether the current column contains at least one missing value.
+    - > means greater than.
+    - The indented fill operation runs only when missing values exist.
+
+        df[col] = df[col].fillna(df[col].mode()[0])
+        - mode() returns the most frequent value in the column.
+        - [0] selects the first mode if more than one mode exists.
+        - fillna() replaces missing text values with that most frequent value.
+        - The cleaned column is stored back in df.
+
+print("Total missing values after cleaning:", df.isnull().sum().sum())
+- The first sum() counts missing values in each column.
+- The second sum() adds those column counts to get one total.
+- The supplied dataset is stated to have no missing values, so this total should be zero.
+- The filling code is still useful if missing values appear in another version of the data.
+
+Why use different methods?
+- Numeric columns are filled with their median.
+- Text/categorical columns are filled with their mode.
+- Median is suitable for numeric values and mode is suitable for categories.
+
+4. TASK 3: DATA MERGING
+
+Notebook explanation:
+- The supplied CSV already contains property and location details together.
+- No separate, verified neighbourhood-demographics or amenities dataset was supplied.
+- Therefore, the practical does not perform a merge.
+- If a suitable second dataset is supplied, it could be joined using a common key such as city or locality_type, provided those fields match meaningfully.
+
+Code:
+
+print("Available columns for a possible merge:")
+print(df.columns.tolist())
+- Prints the available column names.
+- This helps identify possible common columns if another dataset is later provided.
+
+# No merge is performed because no second verified dataset is supplied.
+- # makes this a comment, so Python does not execute it.
+- The practical deliberately avoids creating or pretending to use an unsupported second dataset.
+
+Important viva point:
+- A merge combines related information from two or more datasets using a common key.
+- This practical explains the merge task but does not execute it because no second verified dataset is included.
+
+5. TASK 4: FILTER AND SUBSET THE DATA
+
+df_filtered = df[
+    (df["city"] == "Delhi") &
+    (df["property_type"].isin(["Apartment", "Villa"]))
+].copy()
+
+Explanation:
+- df["city"] selects the city column.
+- == checks whether a value is equal to "Delhi".
+- df["property_type"] selects the property-type column.
+- isin(["Apartment", "Villa"]) checks whether each property type is one of the listed values.
+- ["Apartment", "Villa"] is a Python list of accepted property types.
+- & means AND for combining Pandas row-wise conditions.
+- Both conditions must be True for a row to be selected.
+- df[...] filters the original DataFrame to matching rows.
+- copy() creates a separate copy of the selected rows.
+- The result is stored in df_filtered.
+
+print(df_filtered.head())
+- Displays the first five rows of the filtered dataset.
+
+print("Number of selected properties:", len(df_filtered))
+- len() returns the number of rows/properties in df_filtered.
+- Prints how many properties matched both conditions.
+
+In simple words:
+This step selects only properties located in Delhi whose type is either Apartment or Villa.
+
+6. TASK 5: ENCODE CATEGORICAL VARIABLES
+
+df_encoded = pd.get_dummies(
+    df_filtered,
+    columns=["city", "locality_type", "property_type", "furnishing_status"],
+    dtype=int
+)
+
+Explanation:
+- pd.get_dummies() performs one-hot encoding.
+- One-hot encoding converts categories into separate numeric indicator columns.
+- df_filtered is the input DataFrame.
+- columns lists the categorical columns to encode.
+- dtype=int makes the generated indicator values integers (0 and 1).
+- The result is stored in df_encoded.
+
+Example:
+If property_type contains Apartment and Villa, encoding can create columns such as:
+- property_type_Apartment
+- property_type_Villa
+
+A row gets 1 in the column representing its category and 0 in the other category columns.
+
+print(df_encoded.head())
+- Displays the first five rows of the encoded dataset.
+
+print("Encoded dataset shape:", df_encoded.shape)
+- Displays the number of rows and columns after encoding.
+- The number of columns can increase because one categorical column may become several indicator columns.
+
+Why encode categorical data?
+- Many machine-learning algorithms require numeric inputs.
+- One-hot encoding represents categories numerically without assigning them an artificial order.
+
+7. TASK 6: AGGREGATE DATA
+
+summary = df_filtered.groupby("property_type").agg(
+    Average_Price=("price_inr_lakhs", "mean"),
+    Minimum_Price=("price_inr_lakhs", "min"),
+    Maximum_Price=("price_inr_lakhs", "max"),
+    Number_of_Properties=("property_id", "count")
+).round(2)
+
+Explanation:
+- groupby("property_type") divides the filtered data into groups based on property type.
+- agg() performs multiple calculations for each group.
+- Average_Price=("price_inr_lakhs", "mean") calculates the average price in each property-type group.
+- Minimum_Price uses min to find the lowest price in each group.
+- Maximum_Price uses max to find the highest price in each group.
+- Number_of_Properties=("property_id", "count") counts non-missing property IDs in each group.
+- round(2) rounds numeric results to two decimal places.
+- The summary table is stored in summary.
+
+print(summary)
+- Displays the grouped summary.
+
+Why aggregation?
+It turns many individual property records into a smaller summary that compares Apartment and Villa prices.
+
+8. TASK 7: IDENTIFY OUTLIERS USING IQR
+
+Q1 = df_filtered["price_inr_lakhs"].quantile(0.25)
+- Selects the property price column.
+- quantile(0.25) calculates the first quartile (Q1).
+- Q1 is the value below which approximately 25% of the observations fall.
+
+Q3 = df_filtered["price_inr_lakhs"].quantile(0.75)
+- quantile(0.75) calculates the third quartile (Q3).
+- Q3 is the value below which approximately 75% of observations fall.
+
+IQR = Q3 - Q1
+- IQR stands for Interquartile Range.
+- It measures the spread of the middle 50% of the data.
+- It is calculated by subtracting Q1 from Q3.
+
+lower_limit = Q1 - 1.5 * IQR
+- Calculates the lower boundary used by the IQR outlier rule.
+- 1.5 is the standard multiplier used in this rule.
+
+upper_limit = Q3 + 1.5 * IQR
+- Calculates the upper boundary.
+- Values below the lower limit or above the upper limit are flagged as outliers by this rule.
+
+outliers = df_filtered[
+    (df_filtered["price_inr_lakhs"] < lower_limit) |
+    (df_filtered["price_inr_lakhs"] > upper_limit)
+]
+
+Explanation:
+- The first condition selects prices below the lower limit.
+- < means less than.
+- The second condition selects prices above the upper limit.
+- > means greater than.
+- | means OR for combining Pandas row-wise conditions.
+- A row is selected if either condition is True.
+- The selected rows are stored in outliers.
+
+print("Number of price outliers:", len(outliers))
+- len() counts how many rows were identified as outliers.
+- Prints the count.
+
+CAP EXTREME PRICES
+
+df_filtered["price_inr_lakhs"] = df_filtered["price_inr_lakhs"].clip(
+    lower=lower_limit,
+    upper=upper_limit
+)
+
+Explanation:
+- clip() restricts values to a specified lower and upper boundary.
+- Values below lower_limit are replaced with lower_limit.
+- Values above upper_limit are replaced with upper_limit.
+- Values within the limits remain unchanged.
+- The capped values are assigned back to the price column in df_filtered.
+
+print("Outlier handling completed.")
+- Displays a completion message.
+
+Important distinction:
+- The code does not delete outlier rows.
+- It caps extreme prices at the IQR limits. This is also called winsorization.
+- The variable outliers stores the rows identified before capping.
+
+9. TASK 8: SAVE THE WRANGLED DATASETS
+
+df_filtered.to_csv("Wrangled_RealEstate_Prices.csv", index=False)
+- to_csv() saves the DataFrame as a CSV file.
+- The output filename is Wrangled_RealEstate_Prices.csv.
+- index=False means the Pandas row index is not saved as an extra column.
+- This file contains the filtered dataset after the IQR price-capping operation.
+
+df_encoded.to_csv("Encoded_RealEstate_Prices.csv", index=False)
+- Saves the one-hot encoded DataFrame as a CSV file.
+- index=False prevents the row index from being added as a column.
+
+print("Final datasets saved successfully.")
+- Displays a confirmation message.
+
+IMPORTANT CODE-ORDER DETAIL:
+- df_encoded is created before the outlier-capping step.
+- Therefore, Encoded_RealEstate_Prices.csv contains the filtered data with the original, uncapped price values.
+- Wrangled_RealEstate_Prices.csv is saved from df_filtered after price capping.
+- If the encoded output also needs capped prices, the encoding step would need to be repeated after capping.
+
+10. CONCLUSION
+
+This practical loads a real-estate dataset and performs data wrangling. It standardizes column names, checks and handles missing values, filters Delhi Apartments and Villas, encodes categorical columns, summarizes prices by property type, identifies price outliers using IQR and caps extreme prices. Finally, it saves the filtered and encoded datasets as separate CSV files.
+
+------------------------------------------------------------
+BASIC VIVA QUESTIONS AND ANSWERS
+------------------------------------------------------------
+
+1. What is data wrangling?
+The process of cleaning, transforming and organizing raw data so it is suitable for analysis.
+
+2. What is a dataset?
+A collection of related data, usually organized in rows and columns.
+
+3. What is Pandas?
+A Python library used for data manipulation and analysis.
+
+4. What is NumPy?
+A Python library used for numerical calculations and array operations.
+
+5. What is a DataFrame?
+A two-dimensional Pandas data structure containing rows and columns.
+
+6. What is a CSV file?
+A Comma-Separated Values file used to store tabular data as text.
+
+7. What does read_csv() do?
+It reads a CSV file and loads it into a DataFrame.
+
+8. What does head() do?
+It displays the first five rows by default.
+
+9. What does shape return?
+A tuple containing the number of rows and columns.
+
+10. Why clean column names?
+To make names consistent and easier to access in code.
+
+11. What does strip() do?
+It removes extra whitespace from the beginning and end of a string.
+
+12. What does lower() do?
+It converts letters to lowercase.
+
+13. What does replace(" ", "_") do?
+It replaces spaces with underscores.
+
+14. What is a missing value?
+A value that is not present or recorded in the dataset.
+
+15. What does isnull().sum() do?
+It counts missing values in each column.
+
+16. What is median?
+The middle value when observations are arranged in order.
+
+17. Why use median to fill numeric missing values?
+It is less affected by extreme values than the mean.
+
+18. What is mode?
+The most frequently occurring value in a dataset.
+
+19. Why use mode for categorical missing values?
+It fills a missing category with the most common category in that column.
+
+20. What does select_dtypes() do?
+It selects columns based on their data types.
+
+21. What is a categorical variable?
+A variable that represents a group or category, such as property type or furnishing status.
+
+22. What is data merging?
+Combining information from two or more datasets using a common key.
+
+23. Why was no merge performed in this practical?
+No second verified neighbourhood or amenities dataset was supplied.
+
+24. What is filtering?
+Selecting only the rows that satisfy specified conditions.
+
+25. What does isin() do?
+It checks whether values belong to a specified list of accepted values.
+
+26. What is the difference between & and | in Pandas filtering?
+& means both conditions must be True (AND); | means at least one condition must be True (OR).
+
+27. Why use copy() after filtering?
+To create a separate DataFrame for further changes.
+
+28. What is encoding?
+Converting categorical values into a numeric representation.
+
+29. What is one-hot encoding?
+It creates a separate 0/1 indicator column for each category.
+
+30. What does get_dummies() do?
+It performs one-hot encoding on categorical columns.
+
+31. Why is one-hot encoding useful?
+It allows categorical information to be represented numerically for analysis and machine learning.
+
+32. What is aggregation?
+Summarizing groups of data using calculations such as mean, minimum, maximum or count.
+
+33. What does groupby() do?
+It divides rows into groups based on one or more columns.
+
+34. What does agg() do?
+It applies one or more aggregation functions to each group.
+
+35. What is an outlier?
+An observation that is unusually far from the general pattern of the data.
+
+36. What is IQR?
+Interquartile Range, calculated as Q3 minus Q1.
+
+37. What is Q1?
+The first quartile, or 25th percentile.
+
+38. What is Q3?
+The third quartile, or 75th percentile.
+
+39. What is the IQR outlier rule?
+Values below Q1 - 1.5 × IQR or above Q3 + 1.5 × IQR are flagged as potential outliers.
+
+40. Does this practical delete outlier rows?
+No. It identifies them and caps extreme prices using clip().
+
+41. What is winsorization?
+A technique that limits extreme values by replacing them with selected boundary values rather than deleting the rows.
+
+42. What does clip() do?
+It restricts values to a specified lower and upper limit.
+
+43. What does to_csv() do?
+It saves a DataFrame to a CSV file.
+
+44. Why use index=False when saving?
+To avoid saving the DataFrame's row index as an extra column.
+
+45. What is the difference between the two output files?
+Wrangled_RealEstate_Prices.csv contains filtered data after price capping. Encoded_RealEstate_Prices.csv contains one-hot encoded filtered data created before the capping step.
+
+------------------------------------------------------------
+CODE-SPECIFIC WHY / WHAT-IF VIVA QUESTIONS
+------------------------------------------------------------
+
+1. What if train.csv is not in the notebook folder?
+read_csv() may raise FileNotFoundError. Provide the correct path or keep the CSV beside the notebook.
+
+2. What if we do not clean the column names?
+Names may contain spaces, inconsistent capitalization or extra whitespace, making them harder to access consistently.
+
+3. What if we use upper() instead of lower()?
+Column names will be converted to uppercase instead of lowercase.
+
+4. What if a numeric column has missing values?
+The loop fills those values with that column's median.
+
+5. What if a text column has missing values?
+The code fills them with the most frequent value, using mode()[0].
+
+6. What if a column has no missing values?
+For categorical columns, the if condition prevents unnecessary filling. Numeric fillna() leaves existing non-missing values unchanged.
+
+7. What if a categorical column has multiple modes?
+mode() may return multiple values; [0] selects the first one returned.
+
+8. What if there are no missing values in the supplied dataset?
+The cleaning code still runs, but no values need to be replaced. The final missing-value total remains zero.
+
+9. What if we use mean instead of median for numeric missing values?
+Missing values would be filled with the average. The mean can be more affected by extreme values.
+
+10. Why was no merge performed?
+Only one verified dataset was supplied. Creating a fake second dataset would make the practical's result unreliable.
+
+11. What if a second dataset is supplied?
+It can be merged with the property dataset using a suitable common key, after checking that the key values match.
+
+12. What if we use | instead of & in the filter?
+Rows from Delhi OR rows with Apartment/Villa property types could be selected, including rows that satisfy only one condition. The intended task requires both conditions, so & is used.
+
+13. What if we add another property type to isin()?
+That type will also be included in the filtered result.
+
+14. What if we remove copy()?
+The filtered object may behave like a view in some situations, and later modifications can cause chained-assignment warnings or unexpected behaviour.
+
+15. What if we encode every column?
+Numeric columns may be unnecessarily treated as categories, causing a large and unsuitable set of indicator columns. Only the specified categorical columns are encoded here.
+
+16. What if a category is not present in the filtered data?
+No indicator column is created for a category that does not occur in the selected data.
+
+17. Why dtype=int in get_dummies()?
+It makes the generated 0/1 indicator columns integer-valued.
+
+18. What if we use sum() instead of mean() in aggregation?
+We would calculate total price for each property type rather than average price.
+
+19. What does count() count here?
+It counts non-missing property_id values in each property-type group.
+
+20. What if we use size() instead of count()?
+size() counts all rows in each group, including rows where a particular column may be missing.
+
+21. What if IQR is zero?
+The lower and upper limits may become equal to Q1 and Q3. Many values could be flagged depending on the distribution.
+
+22. Why multiply IQR by 1.5?
+It is the conventional multiplier used in the IQR rule to flag potential outliers.
+
+23. What if a price is below the lower limit?
+clip() replaces it with the lower limit.
+
+24. What if a price is above the upper limit?
+clip() replaces it with the upper limit.
+
+25. What happens to prices within the limits?
+They remain unchanged.
+
+26. Are outlier rows deleted?
+No. They remain in df_filtered; only their price values are capped.
+
+27. Why calculate outliers before clipping?
+To identify and count the original extreme observations before changing their values.
+
+28. What is the difference between filtering and outlier handling?
+Filtering selects rows based on conditions. Outlier handling identifies or adjusts unusually extreme values.
+
+29. Why are two CSV files saved?
+One is the filtered, price-capped dataset; the other is the one-hot encoded dataset.
+
+30. Does the encoded output contain capped prices?
+No. In this notebook, df_encoded is created before the capping step. It is not automatically updated when df_filtered is changed later.
+
+31. What does index=False do?
+It prevents the DataFrame index from being written as an extra CSV column.
+
+32. What if we save with index=True?
+The row index is included in the output CSV as an additional column.
+
+------------------------------------------------------------
+30-SECOND EXPLANATION TO SPEAK IN THE VIVA
+------------------------------------------------------------
+
+“My practical is Data Wrangling on a Real Estate dataset. First, I loaded the train.csv file using Pandas and standardized the column names by removing extra spaces, converting them to lowercase and replacing spaces with underscores. Then I checked for missing values, filling numeric columns with the median and categorical columns with the mode if required. I filtered the data to select Apartments and Villas in Delhi. Next, I performed one-hot encoding on categorical columns and grouped the properties by type to calculate average, minimum and maximum prices and property counts. Finally, I identified price outliers using the IQR method, capped extreme prices using clip(), and saved the filtered and encoded datasets as separate CSV files. No merge was performed because no second verified dataset was provided.”
+
+------------------------------------------------------------
+QUICK REVISION - REMEMBER THESE
+------------------------------------------------------------
+
+- Practical: Data Wrangling on Real Estate Market.
+- Input file: train.csv.
+- Dataset size: 80,000 rows and 18 columns.
+- Libraries: pandas (pd), numpy (np).
+- Clean names: strip(), lower(), replace().
+- Missing values: numeric -> median; categorical -> mode.
+- No missing values are reported in the supplied dataset.
+- No second verified dataset: no merge is performed.
+- Filter: city == "Delhi" AND property_type is Apartment or Villa.
+- Encoding: pd.get_dummies(), one-hot encoding, dtype=int.
+- Aggregation: groupby("property_type").agg().
+- Price column: price_inr_lakhs.
+- Outlier method: IQR = Q3 - Q1.
+- Lower limit: Q1 - 1.5 * IQR.
+- Upper limit: Q3 + 1.5 * IQR.
+- Outlier treatment: clip() caps prices; it does not delete rows.
+- Output 1: Wrangled_RealEstate_Prices.csv.
+- Output 2: Encoded_RealEstate_Prices.csv.
+- Important code detail: encoded data is created before price capping, so its prices remain uncapped.
